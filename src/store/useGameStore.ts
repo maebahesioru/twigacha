@@ -216,7 +216,7 @@ export const useGameStore = create<GameStore>()(
       setBattleSort: (s) => set({ battleSort: s }),
       achievements: [],
       unlockAchievement: (id) => set((s) => ({ achievements: s.achievements.includes(id) ? s.achievements : [...s.achievements, id] })),
-      lang: "ja",
+      lang: typeof window !== "undefined" && navigator.language.startsWith("ja") ? "ja" : "en",
       setLang: (lang) => set({ lang }),
       raidClearCount: 0,
       incrementRaidClearCount: () => set((s) => ({ raidClearCount: s.raidClearCount + 1 })),
