@@ -33,6 +33,9 @@ interface GameStore {
   twitterDone: boolean;
   markTwitter: () => void;
   twitterRewarded: boolean;
+  quest311Date: string;
+  quest311Rewarded: boolean;
+  claimQuest311: () => void;
   packMissionDate: string;
   packMissionRewarded: boolean;
   shareDate: string;
@@ -165,6 +168,15 @@ export const useGameStore = create<GameStore>()(
       },
       packMissionDate: "",
       packMissionRewarded: false,
+      quest311Date: "",
+      quest311Rewarded: false,
+      claimQuest311: () => {
+        const { quest311Date, quest311Rewarded, bonusPacks, bonusPackDate } = get();
+        const today = new Date().toDateString();
+        if (quest311Date === today && quest311Rewarded) return;
+        const current = bonusPackDate === today ? bonusPacks : 0;
+        set({ quest311Date: today, quest311Rewarded: true, bonusPacks: current + 10, bonusPackDate: today });
+      },
       shareDate: "",
       shareDone: false,
       shareRewarded: false,

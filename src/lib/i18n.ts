@@ -29,6 +29,12 @@ const ja = {
     ],
     missionReward: "+2パック",
     missionEach: "各達成で",
+    quest311: {
+      title: "3.11 特別クエスト",
+      desc: "Yahoo! JAPANの3.11検索に参加して、10パックをゲット。",
+      btn: "🔍 Yahoo! で 3.11 を検索する → +10パック",
+      done: "受け取り済み",
+    },
     loginBonus: {
       title: "🎁 ログインボーナス",
       streak: (n: number) => `${n}日連続ログイン！`,
@@ -402,6 +408,12 @@ const en: typeof ja = {
     ],
     missionReward: "+2 packs",
     missionEach: "Each for",
+    quest311: {
+      title: "3.11 Special Quest",
+      desc: "Join Yahoo! JAPAN's 3.11 search and receive 10 packs.",
+      btn: "🔍 Search 3.11 on Yahoo! → +10 packs",
+      done: "Claimed",
+    },
     loginBonus: {
       title: "🎁 Login Bonus",
       streak: (n: number) => `${n} day streak!`,

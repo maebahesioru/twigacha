@@ -131,9 +131,11 @@ export default function GachaPage() {
     if (dx > 0 && revealed > 1) flipTo(revealed - 1, 'prev');
   }
   const [error, setError] = useState("");
-  const { addCard, hasCard, packCount, packDate, openPack, bonusPacks, bonusPackDate, usedBonusPacks, usedBonusDate, srDate, srDone, markSR, twitterDate, twitterDone, markTwitter, shareDate, shareDone, markShare, battleDate, battleDone, raidMissionDate, raidMissionDone, toggleFavorite, favorites, pityCount, addPity, resetPity, setLastPackCards, incrementCardPullCount, totalPackCount, collection, cardPullCounts } = useGameStore();
+  const { addCard, hasCard, packCount, packDate, openPack, bonusPacks, bonusPackDate, usedBonusPacks, usedBonusDate, srDate, srDone, markSR, twitterDate, twitterDone, markTwitter, shareDate, shareDone, markShare, battleDate, battleDone, raidMissionDate, raidMissionDone, toggleFavorite, favorites, pityCount, addPity, resetPity, setLastPackCards, incrementCardPullCount, totalPackCount, collection, cardPullCounts, quest311Date, quest311Rewarded, claimQuest311 } = useGameStore();
   const t = useT();
   const today = new Date().toDateString();
+  const is311 = new Date().getMonth() === 2 && new Date().getDate() === 11;
+  const quest311Done = quest311Date === today && quest311Rewarded;
   const DAILY_LIMIT = 10;
   const todayPackCount = packDate === today ? packCount : 0;
   const todayBonus = bonusPackDate === today ? bonusPacks : 0;
@@ -343,6 +345,23 @@ export default function GachaPage() {
               </span>
             </div>
           </div>
+
+          {/* 3.11特別クエスト */}
+          {is311 && (
+            <div className="mt-3 w-full max-w-xs bg-blue-900/60 border border-blue-500/40 rounded-xl p-3 text-sm">
+              <p className="font-bold text-blue-300 mb-1">🕯️ {t.gacha.quest311.title}</p>
+              <p className="text-gray-300 text-xs mb-2">{t.gacha.quest311.desc}</p>
+              {quest311Done ? (
+                <p className="text-green-400 font-bold text-center">✓ {t.gacha.quest311.done}</p>
+              ) : (
+                <a href="https://search.yahoo.co.jp/search?p=3.11" target="_blank" rel="noopener noreferrer"
+                  onClick={() => { claimQuest311(); }}
+                  className="block w-full text-center bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg transition">
+                  {t.gacha.quest311.btn}
+                </a>
+              )}
+            </div>
+          )}
         </div>
       )}
 
