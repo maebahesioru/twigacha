@@ -131,7 +131,7 @@ export default function GachaPage() {
     if (dx > 0 && revealed > 1) flipTo(revealed - 1, 'prev');
   }
   const [error, setError] = useState("");
-  const { addCard, hasCard, packCount, packDate, openPack, bonusPacks, bonusPackDate, usedBonusPacks, usedBonusDate, srDate, srDone, markSR, twitterDate, twitterDone, markTwitter, shareDate, shareDone, markShare, battleDate, battleDone, toggleFavorite, favorites, pityCount, addPity, resetPity, setLastPackCards, incrementCardPullCount, totalPackCount, collection, cardPullCounts } = useGameStore();
+  const { addCard, hasCard, packCount, packDate, openPack, bonusPacks, bonusPackDate, usedBonusPacks, usedBonusDate, srDate, srDone, markSR, twitterDate, twitterDone, markTwitter, shareDate, shareDone, markShare, battleDate, battleDone, raidMissionDate, raidMissionDone, toggleFavorite, favorites, pityCount, addPity, resetPity, setLastPackCards, incrementCardPullCount, totalPackCount, collection, cardPullCounts } = useGameStore();
   const t = useT();
   const today = new Date().toDateString();
   const DAILY_LIMIT = 10;
@@ -144,8 +144,9 @@ export default function GachaPage() {
   const todayTwitter = twitterDate === today && twitterDone;
   const todayShare = shareDate === today && shareDone;
   const todayBattle = battleDate === today && battleDone;
+  const todayRaid = raidMissionDate === today && raidMissionDone;
   const MISSION_PACKS = 5;
-  const allMissionsDone = todayPackCount >= MISSION_PACKS && todaySR && todayTwitter && todayShare && todayBattle;
+  const allMissionsDone = todayPackCount >= MISSION_PACKS && todaySR && todayTwitter && todayShare && todayBattle && todayRaid;
   useEffect(() => {
     if (prevAllDone.current !== null && allMissionsDone && !prevAllDone.current) { setMissionConfetti(true); setTimeout(() => setMissionConfetti(false), 3000); playMissionComplete(); }
     prevAllDone.current = allMissionsDone;
@@ -333,6 +334,12 @@ export default function GachaPage() {
               <span className={todayBattle ? "line-through text-gray-500" : "text-white"}>{t.gacha.missionItems[4]}</span>
               <span className={todayBattle ? "text-green-400 font-bold" : "text-pink-400 font-bold"}>
                 {todayBattle ? "✓" : "0/1"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className={todayRaid ? "line-through text-gray-500" : "text-white"}>{t.gacha.missionItems[5]}</span>
+              <span className={todayRaid ? "text-green-400 font-bold" : "text-pink-400 font-bold"}>
+                {todayRaid ? "✓" : "0/1"}
               </span>
             </div>
           </div>

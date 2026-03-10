@@ -88,6 +88,10 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
   const battleSpeedRef = useRef(battleSpeed);
   useEffect(() => { battleSpeedRef.current = battleSpeed; }, [battleSpeed]);
   const runningRef = useRef(false);
+  const [autoRepeat, setAutoRepeat] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(0);
+  const autoRepeatRef = useRef(false);
+  useEffect(() => { autoRepeatRef.current = autoRepeat; }, [autoRepeat]);
 
   const toggle = (card: TwitterCard) => {
     if (myTeam.find(c => c.id === card.id)) setMyTeam(myTeam.filter(c => c.id !== card.id));
@@ -171,6 +175,18 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
     }
     await runTeamBattle(enemy);
   };
+
+  // 周回モード
+  useEffect(() => {
+    if (teamView === "result" && battleResult && autoRepeatRef.current) {
+      const timer = setTimeout(() => {
+        if (!autoRepeatRef.current) return;
+        setRepeatCount(n => n + 1);
+        startRandom();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [teamView, battleResult]);
 
   const exportTeam = async () => {
     const pass = prompt(t.battle.team.passphraseExport);
@@ -463,6 +479,15 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
             </div>
           </div>
         ))}
+      </div>
+      <div className="flex items-center gap-3 w-full max-w-2xl">
+        <button
+          onClick={() => setAutoRepeat(v => !v)}
+          className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${autoRepeat ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+        >
+          {autoRepeat ? t.battle.autoRepeatOn : t.battle.autoRepeatOff}
+        </button>
+        {repeatCount > 0 && <span className="text-gray-400 text-sm">{t.battle.autoRepeatCount(repeatCount)}</span>}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full max-w-2xl">
         <button onClick={() => setTeamView("kyu")} className="ripple-btn py-3 bg-gradient-to-r from-green-600 to-teal-600 rounded-xl font-bold hover:opacity-90 transition">{t.battle.result.rematch}</button>

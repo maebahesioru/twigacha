@@ -43,6 +43,10 @@ interface GameStore {
   battleDone: boolean;
   markBattle: () => void;
   battleRewarded: boolean;
+  raidMissionDate: string;
+  raidMissionDone: boolean;
+  markRaidMission: () => void;
+  raidMissionRewarded: boolean;
   battleHistory: { winner: 'player'|'enemy'; turns: number; kyu: string; playerCardId: string; opponentName?: string; pHp?: number; ko?: boolean; playerCardRarity?: string; enemyCardRarity?: string; mode?: string }[];
   addBattleResult: (r: { winner: 'player'|'enemy'; turns: number; kyu: string; playerCardId: string; opponentName?: string; pHp?: number; ko?: boolean; playerCardRarity?: string; enemyCardRarity?: string; mode?: string }) => void;
   teamBattleHistory: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: 'win'|'lose'|'draw'; opponentName?: string; kyu?: string }[];
@@ -180,6 +184,16 @@ export const useGameStore = create<GameStore>()(
         const alreadyRewarded = battleDate === today && battleRewarded;
         const current = bonusPackDate === today ? bonusPacks : 0;
         set({ battleDone: true, battleDate: today, battleRewarded: true, bonusPacks: alreadyRewarded ? current : current + 2, bonusPackDate: today });
+      },
+      raidMissionDate: "",
+      raidMissionDone: false,
+      raidMissionRewarded: false,
+      markRaidMission: () => {
+        const today = new Date().toDateString();
+        const { raidMissionDate, raidMissionRewarded, bonusPacks, bonusPackDate } = get();
+        const alreadyRewarded = raidMissionDate === today && raidMissionRewarded;
+        const current = bonusPackDate === today ? bonusPacks : 0;
+        set({ raidMissionDone: true, raidMissionDate: today, raidMissionRewarded: true, bonusPacks: alreadyRewarded ? current : current + 2, bonusPackDate: today });
       },
       battleHistory: [],
       addBattleResult: (r) => set((s) => {

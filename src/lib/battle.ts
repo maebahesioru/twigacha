@@ -3,6 +3,15 @@ import { PASSIVE_SKILLS, getSkill } from "@/lib/skill";
 
 export const ELEMENTS: Element[] = ["🔥", "💧", "🌿", "⚡", "✨", "🌑", "🌙", "❄️"];
 
+/** 今日の天気属性（日付ハッシュで毎日変わる） */
+export function getTodayWeather(): Element {
+  const d = new Date();
+  const key = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  return ELEMENTS[key % ELEMENTS.length];
+}
+/** 天気ボーナス倍率（その属性のATK+20%） */
+export const WEATHER_BONUS = 1.2;
+
 export type Kyu = "C" | "N" | "R" | "SR" | "SSR" | "UR" | "LR";
 
 export const KYU_CONFIG: Record<Kyu, { min: number; max: number; rarity: Rarity }> = {
@@ -141,6 +150,10 @@ export function simulateBattle(p: TwitterCard, e: TwitterCard, lang: "ja" | "en"
   e = ensureUlts(e);
   p = applySkill(p);
   e = applySkill(e);
+  // 天気ボーナス
+  const weather = getTodayWeather();
+  if (p.element === weather) p = { ...p, atk: Math.round(p.atk * WEATHER_BONUS) };
+  if (e.element === weather) e = { ...e, atk: Math.round(e.atk * WEATHER_BONUS) };
   const log: string[] = [];
   const hpSnaps: { pHp: number; eHp: number }[] = [];
   let pHp = p.hp, eHp = e.hp, turn = 1;

@@ -6,7 +6,7 @@ import TcgCard from "@/components/TcgCard";
 import { useGameStore } from "@/store/useGameStore";
 import { useT } from "@/hooks/useT";
 import type { TwitterCard } from "@/types";
-import { KYU_CONFIG, generateEnemy, simulateBattle, calcDamage, applySkill, type Kyu } from "@/lib/battle";
+import { KYU_CONFIG, generateEnemy, simulateBattle, calcDamage, applySkill, getTodayWeather, type Kyu } from "@/lib/battle";
 import { VsIdScreen } from "./VsIdScreen";
 import { OnlineBattleView } from "./OnlineViews";
 import { TeamBattleView } from "./TeamBattleView";
@@ -19,7 +19,7 @@ function BattlePageInner() {
     raidDate, raidBossMaxHp, raidBossHp, raidBossCard, raidCleared, raidDeck, raidUsedCards,
     setRaidDeck, damageRaidBoss, addRaidUsedCards, initRaid, clearRaid, incrementRaidClearCount, raidHistory, addRaidHistory,
     teamBattleHistory, addTeamBattleResult, savedTeam, setSavedTeam, savedDecks, savedeck, deleteDeck,
-    battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard } = useGameStore();
+    battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard, markRaidMission } = useGameStore();
   const battleSpeedRef = useRef(battleSpeed);
   useEffect(() => { battleSpeedRef.current = battleSpeed; }, [battleSpeed]);
   const t = useT();
@@ -50,6 +50,8 @@ function BattlePageInner() {
   const [dmgPop, setDmgPop] = useState<{side:'player'|'enemy';val:number;key:number}|null>(null);
   const [hpFlash, setHpFlash] = useState<'player'|'enemy'|null>(null);
   const [precomputedBattle, setPrecomputedBattle] = useState<{ winner: string; pHp: number; eHp: number; turns: number; ko: boolean; hpSnaps: {pHp:number;eHp:number}[]; log: string[] } | null>(null);
+  const [autoRepeat, setAutoRepeat] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(0);
   const [onlineNames, setOnlineNames] = useState<{ my: string; opponent: string } | null>(null);
   const [pHpLive, setPHpLive] = useState(0);
   const [eHpLive, setEHpLive] = useState(0);
@@ -77,18 +79,66 @@ function BattlePageInner() {
       const card: TwitterCard = Array.isArray(data) ? data[0] : data;
       if (!card || (card as unknown as { error?: string }).error) return;
       // {t.battle.raid.bossHp}はカードの10倍
-      const maxHp = card.hp * 10;
-      const boss: TwitterCard = { ...card, hp: maxHp, rarity: "LR" };
+      const maxHp = card.hp * 8;
+      const boss: TwitterCard = { ...card,
+        hp: maxHp,
+        atk: Math.round(card.atk * 2.0),
+        def: Math.round(card.def * 2.0),
+        spd: Math.round(card.spd * 1.5),
+        int: Math.round(card.int * 2.0),
+        luk: Math.round(card.luk * 1.5),
+        rarity: "LR",
+      };
       initRaid(todayStr, boss, maxHp);
     } finally {
       setRaidBossLoading(false);
     }
   }, [raidDate, raidBossCard, todayStr]);
 
+  const generateAndSetEnemy = useCallback(async (targetKyu: Kyu) => {
+    const kyuHistory = battleHistory.filter(b => b.kyu === targetKyu);
+    const winRate = kyuHistory.length >= 3 ? kyuHistory.filter(b => b.winner === 'player').length / kyuHistory.length : 0.5;
+    const b = 0.8 + winRate * 0.8;
+    const boosted = (c: TwitterCard) => ({ ...c,
+      atk: Math.round(c.atk * b), def: Math.round(c.def * b),
+      spd: Math.round(c.spd * b), hp: Math.round(c.hp * b),
+      int: Math.round(c.int * b), luk: Math.round(c.luk * b),
+    });
+    const fetchUlts = async (username: string) => {
+      try { const d = await fetch(`/api/gacha?username=${encodeURIComponent(username)}`).then(r => r.json()); return d.ultimates ?? []; } catch { return []; }
+    };
+    try {
+      const res = await fetch('/api/gacha?count=5');
+      const data = await res.json();
+      const cards: TwitterCard[] = data.filter((c: { error?: string }) => c && !c.error) as TwitterCard[];
+      const exact = cards.find(c => c.rarity === targetKyu);
+      if (exact) {
+        const ults = await fetchUlts(exact.username);
+        setEnemyCard(boosted({ ...exact, ultimates: ults }));
+      } else if (cards[0]) {
+        const { min, max } = KYU_CONFIG[targetKyu];
+        const target = Math.round((min + max) / 2) * 6;
+        const base = cards[0];
+        const total = base.atk + base.def + base.spd + base.hp + base.int + base.luk;
+        const r = target / Math.max(total, 1);
+        const ults = await fetchUlts(base.username);
+        setEnemyCard(boosted({ ...base, rarity: targetKyu,
+          atk: Math.round(base.atk * r), def: Math.round(base.def * r),
+          spd: Math.round(base.spd * r), hp: Math.round(base.hp * r),
+          int: Math.round(base.int * r), luk: Math.round(base.luk * r),
+          ultimates: ults,
+        }));
+      } else {
+        setEnemyCard(boosted(generateEnemy(targetKyu)));
+      }
+    } catch {
+      setEnemyCard(boosted(generateEnemy(targetKyu)));
+    }
+  }, [battleHistory]);
+
   const startBattle = useCallback(async () => {
     if (!playerCard || !enemyCard) return;
     setBattling(true);
-    setLog([]);
     setResult(null);
     setPHpLive(playerCard.hp);
     setEHpLive(enemyCard.hp);
@@ -133,6 +183,24 @@ function BattlePageInner() {
       startBattle();
     }
   }, [view, enemyCard]);
+
+  // 周回モード：リザルト表示後に自動で次の敵を生成して再戦
+  const autoRepeatRef = useRef(autoRepeat);
+  useEffect(() => { autoRepeatRef.current = autoRepeat; }, [autoRepeat]);
+  useEffect(() => {
+    if (view === 'result' && result && autoRepeatRef.current) {
+      const timer = setTimeout(async () => {
+        if (!autoRepeatRef.current) return;
+        setRepeatCount(n => n + 1);
+        setLog([]);
+        setResult(null);
+        setEnemyCard(null);
+        setView('battle');
+        await generateAndSetEnemy(kyu);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [view, result]);
 
   useEffect(() => {
     if (view === 'raid') loadRaidBoss();
@@ -189,6 +257,7 @@ function BattlePageInner() {
     const cleared = bossHp <= 0;
     if (cleared) { clearRaid(); incrementRaidClearCount(); }
     addRaidHistory({ date: new Date().toLocaleDateString(), bossName: raidBossCard.displayName, totalDmg, cleared });
+    markRaidMission();
     // カードランキングに各カードの結果を送信
     deck.forEach(card => {
       fetch('/api/ranking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_id: card.id, username: card.username, display_name: card.displayName, avatar: card.avatar, rarity: card.rarity, atk: card.atk, element: card.element, won: cleared, ko_win: false, ultimate_count: 0 }) }).catch(() => {});
@@ -248,6 +317,7 @@ function BattlePageInner() {
     return (
       <div className="min-h-dvh bg-gray-950 text-white py-10 px-4 flex flex-col items-center gap-6 slide-in-up">
         <h1 className="text-2xl sm:text-4xl font-black bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">{ t.battle.title}</h1>
+        <div className="text-sm font-bold px-4 py-2 rounded-xl bg-sky-900/60 border border-sky-500/40 text-sky-300">{t.battle.weather(getTodayWeather())}</div>
         <div className="grid grid-cols-2 gap-3 w-full max-w-2xl">
           <button
             onClick={() => { setSelectFor('battle'); setView('select'); setPlayerCard(null); setEnemyCard(null); setLog([]); setResult(null); }}
@@ -455,44 +525,8 @@ function BattlePageInner() {
             setLog([]);
             setResult(null);
             setEnemyCard(null);
-            const kyuHistory = battleHistory.filter(b => b.kyu === kyu);
-            const winRate = kyuHistory.length >= 3 ? kyuHistory.filter(b => b.winner === 'player').length / kyuHistory.length : 0.5;
-            const b = 0.8 + winRate * 0.8; // 勝率0%→0.8倍、50%→1.2倍、100%→1.6倍
-            const boosted = (c: TwitterCard) => ({ ...c,
-              atk: Math.round(c.atk * b), def: Math.round(c.def * b),
-              spd: Math.round(c.spd * b), hp: Math.round(c.hp * b),
-              int: Math.round(c.int * b), luk: Math.round(c.luk * b),
-            });
-            try {
-              const res = await fetch('/api/gacha?count=5');
-              const data = await res.json();
-              const cards: TwitterCard[] = data.filter((c: { error?: string }) => c && !c.error) as TwitterCard[];
-              const exact = cards.find(c => c.rarity === kyu);
-              const fetchUlts = async (username: string) => {
-                try { const d = await fetch(`/api/gacha?username=${encodeURIComponent(username)}`).then(r => r.json()); return d.ultimates ?? []; } catch { return []; }
-              };
-              if (exact) {
-                const ults = await fetchUlts(exact.username);
-                setEnemyCard(boosted({ ...exact, ultimates: ults }));
-              } else if (cards[0]) {
-                const { min, max } = KYU_CONFIG[kyu];
-                const target = Math.round((min + max) / 2) * 6;
-                const base = cards[0];
-                const total = base.atk + base.def + base.spd + base.hp + base.int + base.luk;
-                const r = target / Math.max(total, 1);
-                const ults = await fetchUlts(base.username);
-                setEnemyCard(boosted({ ...base, rarity: kyu,
-                  atk: Math.round(base.atk * r), def: Math.round(base.def * r),
-                  spd: Math.round(base.spd * r), hp: Math.round(base.hp * r),
-                  int: Math.round(base.int * r), luk: Math.round(base.luk * r),
-                  ultimates: ults,
-                }));
-              } else {
-                setEnemyCard(boosted(generateEnemy(kyu)));
-              }
-            } catch {
-              setEnemyCard(boosted(generateEnemy(kyu)));
-            }
+            setRepeatCount(0);
+            await generateAndSetEnemy(kyu);
           }}
           className="w-full sm:w-auto px-10 py-3 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl font-bold text-lg hover:opacity-90 transition"
         >
@@ -578,6 +612,17 @@ function BattlePageInner() {
             </div>
           </details>
         )}
+
+        {/* 周回モード */}
+        <div className="flex items-center gap-3 w-full max-w-2xl">
+          <button
+            onClick={() => setAutoRepeat(v => !v)}
+            className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${autoRepeat ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+          >
+            {autoRepeat ? t.battle.autoRepeatOn : t.battle.autoRepeatOff}
+          </button>
+          {repeatCount > 0 && <span className="text-gray-400 text-sm">{t.battle.autoRepeatCount(repeatCount)}</span>}
+        </div>
 
         {/* アクションボタン */}
         <div className="grid grid-cols-3 gap-2 w-full max-w-2xl">
