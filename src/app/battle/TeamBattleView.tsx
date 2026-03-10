@@ -54,12 +54,14 @@ const Header = ({ title, back, backLabel }: { title: string; back: () => void; b
   </div>
 );
 
-export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleResult, addBattleResult, onBack, t, battleSpeed, setBattleSpeed, battleSort, setBattleSort, savedTeam, setSavedTeam, savedDecks, savedeck, deleteDeck }: {
+export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleResult, addBattleResult, onBack, onReplay, onReplayAll, t, battleSpeed, setBattleSpeed, battleSort, setBattleSort, savedTeam, setSavedTeam, savedDecks, savedeck, deleteDeck }: {
   collection: TwitterCard[];
-  teamBattleHistory: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: "win"|"lose"|"draw"; opponentName?: string }[];
+  teamBattleHistory: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: "win"|"lose"|"draw"; opponentName?: string; log?: string[]; rounds?: { p: import("@/types").TwitterCard; e: import("@/types").TwitterCard; hpSnaps: {pHp:number;eHp:number}[]; log: string[]; win: boolean }[] }[];
   addTeamBattleResult: (r: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: "win"|"lose"|"draw"; opponentName?: string; kyu?: string }) => void;
-  addBattleResult: (r: { winner: 'player'|'enemy'; turns: number; kyu: string; playerCardId: string; pHp?: number; ko?: boolean; playerCardRarity?: string; mode?: string }) => void;
+  addBattleResult: (r: { winner: 'player'|'enemy'; turns: number; kyu: string; playerCardId: string; pHp?: number; ko?: boolean; playerCardRarity?: string; mode?: string; log?: string[]; hpSnaps?: {pHp:number;eHp:number}[]; playerSnap?: import("@/types").TwitterCard; enemySnap?: import("@/types").TwitterCard }) => void;
   onBack: () => void;
+  onReplay: (log: string[], cards?: { p: import("@/types").TwitterCard; e: import("@/types").TwitterCard; hpSnaps: {pHp:number;eHp:number}[] }) => void;
+  onReplayAll: (rounds: { p: import("@/types").TwitterCard; e: import("@/types").TwitterCard; hpSnaps: {pHp:number;eHp:number}[]; log: string[] }[]) => void;
   t: Translations;
   battleSpeed: number;
   setBattleSpeed: (n: number) => void;
@@ -105,7 +107,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
     setRunning(true); setBattleLog([]); setBattleResult(null); setEnemyTeamDisplay(enemyTeam); setRoundResults([]); setCurrentRound(null);
     setTeamView("battle");
     const logs: string[] = [];
-    const rounds: { p: TwitterCard; e: TwitterCard; win: boolean; pHp: number; eHp: number; turns: number; ko: boolean }[] = [];
+    const rounds: { p: TwitterCard; e: TwitterCard; win: boolean; pHp: number; eHp: number; turns: number; ko: boolean; hpSnaps: {pHp:number;eHp:number}[]; log: string[] }[] = [];
     let wins = 0, losses = 0;
     for (let i = 0; i < n; i++) {
       const p = myTeam[i], e = enemyTeam[i];
@@ -122,7 +124,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
       }
       const win = winner === "player";
       if (win) wins++; else losses++;
-      rounds.push({ p, e, win, pHp, eHp, turns, ko });
+      rounds.push({ p, e, win, pHp, eHp, turns, ko, hpSnaps, log: turnLog });
       setRoundResults([...rounds]);
       logs.push(win ? t.battle.team.roundWin(p.displayName) : t.battle.team.roundLose(e.displayName));
       setBattleLog([...logs]);
@@ -132,15 +134,14 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
     const result: "win"|"lose"|"draw" = wins > losses ? "win" : wins < losses ? "lose" : "draw";
     setBattleResult({ wins, losses, result, enemyTeam });
     result === "win" ? playVictory() : result === "lose" ? playDefeat() : null;
-    addTeamBattleResult({ date: new Date().toLocaleDateString(), myTeam: myTeam.map(c => c.id), enemyTeam: enemyTeam.map(c => c.id), wins, losses, result, opponentName: onlineNames?.opponent, kyu: teamKyu ?? undefined });
+    addTeamBattleResult({ date: new Date().toLocaleDateString(), myTeam: myTeam.map(c => c.id), enemyTeam: enemyTeam.map(c => c.id), wins, losses, result, opponentName: onlineNames?.opponent, kyu: teamKyu ?? undefined, log: logs, rounds: rounds.map(r => ({ p: r.p, e: r.e, hpSnaps: r.hpSnaps, log: r.log, win: r.win })) });
     // カードランキングに各カードの結果を送信
     rounds.forEach(r => {
       fetch('/api/ranking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_id: r.p.id, username: r.p.username, display_name: r.p.displayName, avatar: r.p.avatar, rarity: r.p.rarity, atk: r.p.atk, element: r.p.element, won: r.win, ko_win: r.win && r.ko, ultimate_count: 0 }) }).catch(() => {});
     });
-    // 連勝ボーナス用に個人戦履歴にも記録（mode:'team'）
+    // 連勝ボーナス用に個人戦履歴にも記録（mode:'team'）、各ラウンドをリプレイ対応で保存
     if (!onlineNames) {
-      const winner = result === 'win' ? 'player' : result === 'lose' ? 'enemy' : null;
-      if (winner) addBattleResult({ winner, turns: 0, kyu: teamKyu ?? 'C', playerCardId: myTeam[0]?.id ?? '', playerCardRarity: myTeam[0]?.rarity, mode: 'team' });
+      rounds.forEach(r => addBattleResult({ winner: r.win ? 'player' : 'enemy', turns: r.turns, kyu: teamKyu ?? 'C', playerCardId: r.p.id, pHp: r.pHp, ko: r.ko, playerCardRarity: r.p.rarity, mode: 'team', log: r.log, hpSnaps: r.hpSnaps, playerSnap: r.p, enemySnap: r.e }));
     }
     setRunning(false);
     runningRef.current = false;
@@ -252,12 +253,26 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
         {teamBattleHistory.length === 0 ? <p className="text-gray-500 text-sm">{t.battle.team.noHistory}</p> : (
           <div className="space-y-2">
             {[...teamBattleHistory].reverse().slice(0, 10).map((h, i) => (
-              <div key={i} className="flex justify-between items-center bg-gray-800/60 rounded-xl px-4 py-2 text-sm">
-                <span className="text-gray-400">{h.opponentName ? `vs ${h.opponentName}` : h.date}</span>
-                <span className={`font-bold ${h.result === "win" ? "text-yellow-400" : h.result === "lose" ? "text-red-400" : "text-gray-400"}`}>
-                  {h.result === "win" ? t.battle.team.win : h.result === "lose" ? t.battle.team.lose : t.battle.team.draw}
-                </span>
-                <span className="text-gray-300">{t.battle.team.result(h.wins, h.losses)}</span>
+              <div key={i} className="flex flex-col gap-1 bg-gray-800/60 rounded-xl px-4 py-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">{h.opponentName ? `vs ${h.opponentName}` : h.date}</span>
+                  <span className={`font-bold ${h.result === "win" ? "text-yellow-400" : h.result === "lose" ? "text-red-400" : "text-gray-400"}`}>
+                    {h.result === "win" ? t.battle.team.win : h.result === "lose" ? t.battle.team.lose : t.battle.team.draw}
+                  </span>
+                  <span className="text-gray-300">{t.battle.team.result(h.wins, h.losses)}</span>
+                </div>
+                {h.rounds && h.rounds.length > 0 && (
+                  <div className="flex gap-1 flex-wrap">
+                    <button onClick={() => onReplayAll(h.rounds!)}
+                      className="text-xs px-2 py-1 bg-purple-700 rounded-lg hover:bg-purple-600 transition">全通し ▶</button>
+                    {h.rounds.map((r, ri) => (
+                      <button key={ri} onClick={() => onReplay(r.log, { p: r.p, e: r.e, hpSnaps: r.hpSnaps })}
+                        className={`text-xs px-2 py-1 rounded-lg transition ${r.win ? 'bg-green-700 hover:bg-green-600' : 'bg-red-800 hover:bg-red-700'}`}>
+                        R{ri + 1} ▶
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -361,7 +376,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
         <div className="flex items-center gap-3 text-sm justify-center mb-6">
           <span className="text-gray-400">{t.battle.speed}</span>
           <span className="text-xs text-gray-500">{t.battle.slow}</span>
-          <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} value={1300 - battleSpeed} onChange={e => setBattleSpeed(1300 - Number(e.target.value))} className="w-32 accent-green-500" />
+          <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} defaultValue={1300 - battleSpeed} onInput={e => setBattleSpeed(1300 - Number((e.target as HTMLInputElement).value))} className="w-32 accent-green-500" />
           <span className="text-xs text-gray-500">{t.battle.fast}</span>
         </div>
         <button onClick={startRandom} disabled={!teamKyu || running} className="w-full py-4 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl font-bold text-xl hover:opacity-90 disabled:opacity-40 transition">{t.battle.team.startRandom}</button>
@@ -418,7 +433,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
       <div className="flex items-center gap-3 text-sm justify-center">
         <span className="text-gray-400">{t.battle.speed}</span>
         <span className="text-xs text-gray-500">{t.battle.slow}</span>
-        <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} value={1300 - battleSpeed} onChange={e => setBattleSpeed(1300 - Number(e.target.value))} className="w-32 accent-green-500" />
+        <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} defaultValue={1300 - battleSpeed} onInput={e => setBattleSpeed(1300 - Number((e.target as HTMLInputElement).value))} className="w-32 accent-green-500" />
         <span className="text-xs text-gray-500">{t.battle.fast}</span>
       </div>
       <div className="max-w-2xl w-full bg-gray-900 rounded-xl p-4 space-y-1 max-h-64 overflow-y-auto overscroll-contain">

@@ -10,6 +10,8 @@ import { KYU_CONFIG, generateEnemy, simulateBattle, calcDamage, applySkill, getT
 import { VsIdScreen } from "./VsIdScreen";
 import { OnlineBattleView } from "./OnlineViews";
 import { TeamBattleView } from "./TeamBattleView";
+import { RaidViews } from "./RaidViews";
+import { BattleMenuView } from "./BattleMenuView";
 import { playAttack, playVictory, playDefeat } from "@/lib/audio";
 import { playRaidHit } from "@/lib/audio";
 import Confetti from "@/components/Confetti";
@@ -20,12 +22,13 @@ function BattlePageInner() {
     setRaidDeck, damageRaidBoss, addRaidUsedCards, initRaid, clearRaid, incrementRaidClearCount, raidHistory, addRaidHistory,
     teamBattleHistory, addTeamBattleResult, savedTeam, setSavedTeam, savedDecks, savedeck, deleteDeck,
     battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard, markRaidMission } = useGameStore();
-  const battleSpeedRef = useRef(battleSpeed);
-  useEffect(() => { battleSpeedRef.current = battleSpeed; }, [battleSpeed]);
+  const [localSpeed, setLocalSpeed] = useState(battleSpeed);
+  const battleSpeedRef = useRef(localSpeed);
+  useEffect(() => { battleSpeedRef.current = localSpeed; }, [localSpeed]);
   const t = useT();
   const searchParams = useSearchParams();
   const initialCode = searchParams.get('code') ?? '';
-  const [view, setView] = useState<'menu' | 'select' | 'rarity' | 'battle' | 'result' | 'raid' | 'raid-battle' | 'raid-result' | 'vs-id' | 'team' | 'online'>('menu');
+  const [view, setView] = useState<'menu' | 'select' | 'rarity' | 'battle' | 'result' | 'raid' | 'raid-battle' | 'raid-result' | 'vs-id' | 'team' | 'online' | 'replay'>('menu');
   const [kyu, setKyu] = useState<Kyu>("R");
   const [search, setSearch] = useState("");
   const [rarityFilter, setRarityFilter] = useState<"ALL"|"LR"|"UR"|"SSR"|"SR"|"R"|"N"|"C">("ALL");
@@ -52,6 +55,22 @@ function BattlePageInner() {
   const [precomputedBattle, setPrecomputedBattle] = useState<{ winner: string; pHp: number; eHp: number; turns: number; ko: boolean; hpSnaps: {pHp:number;eHp:number}[]; log: string[] } | null>(null);
   const [autoRepeat, setAutoRepeat] = useState(false);
   const [repeatCount, setRepeatCount] = useState(0);
+  const [replayIdx, setReplayIdx] = useState(0);
+  const [replayCards, setReplayCards] = useState<{p: import("@/types").TwitterCard; e: import("@/types").TwitterCard; hpSnaps: {pHp:number;eHp:number}[]} | null>(null);
+  const [replayFrom, setReplayFrom] = useState<string>('menu');
+  const [replayRaidSnaps, setReplayRaidSnaps] = useState<{ cardIdx: number; card: import("@/types").TwitterCard; cardHp: number; bossHp: number }[] | null>(null);
+  const [replayBossCard, setReplayBossCard] = useState<import("@/types").TwitterCard | null>(null);
+  const [replayBossMaxHp, setReplayBossMaxHp] = useState(0);
+  const [replayRaidCardHp, setReplayRaidCardHp] = useState(0);
+  const [replayRaidBossHp, setReplayRaidBossHp] = useState(0);
+  const [replayRaidCard, setReplayRaidCard] = useState<import("@/types").TwitterCard | null>(null);
+  const [replayPHp, setReplayPHp] = useState(0);
+  const [replayEHp, setReplayEHp] = useState(0);
+  const [replayShake, setReplayShake] = useState<'player'|'enemy'|null>(null);
+  const [replayDmgPop, setReplayDmgPop] = useState<{side:'player'|'enemy';val:number;key:number}|null>(null);
+  const [replayHpFlash, setReplayHpFlash] = useState<'player'|'enemy'|null>(null);
+  const [replayRounds, setReplayRounds] = useState<{p: import("@/types").TwitterCard; e: import("@/types").TwitterCard; hpSnaps: {pHp:number;eHp:number}[]; log: string[]}[] | null>(null);
+  const [replayRoundIdx, setReplayRoundIdx] = useState(0);
   const [onlineNames, setOnlineNames] = useState<{ my: string; opponent: string } | null>(null);
   const [pHpLive, setPHpLive] = useState(0);
   const [eHpLive, setEHpLive] = useState(0);
@@ -69,6 +88,12 @@ function BattlePageInner() {
   const [raidBossLoading, setRaidBossLoading] = useState(false);
 
   const todayStr = new Date().toDateString();
+
+  const raidReplay = (log: string[], snaps?: { cardIdx: number; card: import("@/types").TwitterCard; cardHp: number; bossHp: number }[], bossCard?: import("@/types").TwitterCard, bossMaxHp?: number) => {
+    setLog(log); setReplayCards(null); setReplayRaidSnaps(snaps ?? null);
+    setReplayBossCard(bossCard ?? null); setReplayBossMaxHp(bossMaxHp ?? 0);
+    setReplayRounds(null); setReplayFrom(view); setReplayIdx(0); setView('replay');
+  };
 
   const loadRaidBoss = useCallback(async () => {
     if (raidDate === todayStr && raidBossCard) return;
@@ -149,7 +174,7 @@ function BattlePageInner() {
     for (let i = 0; i < battleLog.length; i++) {
       await new Promise((r) => setTimeout(r, battleSpeedRef.current));
       setLog((prev) => [...prev, battleLog[i]]);
-      const snap = hpSnaps[i];
+      const snap = hpSnaps[i] ?? hpSnaps[hpSnaps.length - 1];
       if (snap.eHp < prevEHp) {
         const dmg = prevEHp - snap.eHp;
         setShake('enemy'); setTimeout(() => setShake(null), 400);
@@ -170,7 +195,7 @@ function BattlePageInner() {
     setResult({ winner, pHp, eHp, turns, ko });
     setBattling(false);
     markBattle();
-    addBattleResult({ winner: winner as 'player' | 'enemy', turns, kyu, playerCardId: playerCard.id, opponentName: onlineNames?.opponent, pHp, ko, playerCardRarity: playerCard.rarity, enemyCardRarity: enemyCard.rarity, mode: selectFor === 'battle' && !onlineNames ? 'random' : 'other' });
+    addBattleResult({ winner: winner as 'player' | 'enemy', turns, kyu, playerCardId: playerCard.id, opponentName: onlineNames?.opponent, pHp, ko, playerCardRarity: playerCard.rarity, enemyCardRarity: enemyCard.rarity, mode: selectFor === 'battle' && !onlineNames ? 'random' : 'other', log: battleLog, hpSnaps, playerSnap: playerCard, enemySnap: enemyCard });
     const ultimateCount = battleLog.filter(l => l.includes("⚡必殺") && l.includes(`@${playerCard.username}`) === false && winner === 'player' ? false : l.includes("⚡必殺")).length;
     fetch('/api/ranking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_id: playerCard.id, username: playerCard.username, display_name: playerCard.displayName, avatar: playerCard.avatar, rarity: playerCard.rarity, atk: playerCard.atk, element: playerCard.element, won: winner === 'player', ko_win: winner === 'player' && ko, ultimate_count: ultimateCount }) }).catch(() => {});
     winner === 'player' ? playVictory() : playDefeat();
@@ -202,9 +227,64 @@ function BattlePageInner() {
     }
   }, [view, result]);
 
+  // リプレイ自動再生
+  useEffect(() => {
+    if (view !== 'replay' || !replayCards) return;
+    if (replayIdx >= replayCards.hpSnaps.length) {
+      // ラウンド終了 → 次のラウンドへ自動進行
+      if (replayRounds && replayRoundIdx + 1 < replayRounds.length) {
+        const timer = setTimeout(() => {
+          const next = replayRounds[replayRoundIdx + 1];
+          setLog(next.log);
+          setReplayCards(next);
+          setReplayPHp(next.p.hp);
+          setReplayEHp(next.e.hp);
+          setReplayIdx(0);
+          setReplayRoundIdx(i => i + 1);
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+      return;
+    }
+    const timer = setTimeout(() => {
+      const snap = replayCards.hpSnaps[replayIdx];
+      const prevP = replayIdx === 0 ? replayCards.p.hp : replayCards.hpSnaps[replayIdx - 1].pHp;
+      const prevE = replayIdx === 0 ? replayCards.e.hp : replayCards.hpSnaps[replayIdx - 1].eHp;
+      if (snap.eHp < prevE) { setReplayShake('enemy'); setTimeout(() => setReplayShake(null), 400); setReplayHpFlash('enemy'); setTimeout(() => setReplayHpFlash(null), 300); setReplayDmgPop({ side: 'enemy', val: prevE - snap.eHp, key: Date.now() }); playAttack(); }
+      if (snap.pHp < prevP) { setReplayShake('player'); setTimeout(() => setReplayShake(null), 400); setReplayHpFlash('player'); setTimeout(() => setReplayHpFlash(null), 300); setReplayDmgPop({ side: 'player', val: prevP - snap.pHp, key: Date.now() + 1 }); }
+      setReplayPHp(snap.pHp);
+      setReplayEHp(snap.eHp);
+      setReplayIdx(i => i + 1);
+      if (replayIdx + 1 >= replayCards.hpSnaps.length) {
+        const lastSnap = replayCards.hpSnaps[replayCards.hpSnaps.length - 1];
+        lastSnap.pHp > 0 ? playVictory() : playDefeat();
+      }
+    }, localSpeed);
+    return () => clearTimeout(timer);
+  }, [view, replayIdx, replayCards, replayRounds, replayRoundIdx, localSpeed]);
+
   useEffect(() => {
     if (view === 'raid') loadRaidBoss();
   }, [view]);
+
+  // レイドリプレイ自動再生
+  useEffect(() => {
+    if (view !== 'replay' || !replayRaidSnaps || replayCards) return;
+    if (replayIdx >= replayRaidSnaps.length) return;
+    const timer = setTimeout(() => {
+      const snap = replayRaidSnaps[replayIdx];
+      const prev = replayRaidSnaps[replayIdx - 1];
+      setReplayRaidCard(snap.card);
+      setReplayRaidCardHp(snap.cardHp);
+      setReplayRaidBossHp(snap.bossHp);
+      if (snap.bossHp < (prev?.bossHp ?? replayBossMaxHp)) playRaidHit();       // カード→ボス攻撃
+      if (snap.cardHp < (prev?.cardHp ?? snap.card.hp)) playAttack();            // ボス→カード攻撃
+      const done = replayIdx + 1 >= replayRaidSnaps.length;
+      if (done) { snap.bossHp <= 0 ? playVictory() : playDefeat(); }
+      setReplayIdx(i => i + 1);
+    }, localSpeed);
+    return () => clearTimeout(timer);
+  }, [view, replayIdx, replayRaidSnaps, replayCards, replayBossMaxHp, localSpeed]);
 
   // レイドバトル開始
   const startRaidBattle = useCallback(async () => {
@@ -220,6 +300,7 @@ function BattlePageInner() {
 
     let totalDmg = 0;
     let totalTurns = 0;
+    const raidSnaps: { cardIdx: number; card: TwitterCard; cardHp: number; bossHp: number }[] = [];
     const boss = { ...raidBossCard, hp: bossHp };
 
     for (let ci = 0; ci < deck.length && bossHp > 0; ci++) {
@@ -239,11 +320,13 @@ function BattlePageInner() {
         setRaidBossHpLive(bossHp);
         setRaidHpFlash(true); setTimeout(() => setRaidHpFlash(false), 300);
         playRaidHit();
+        raidSnaps.push({ cardIdx: ci, card: rawCard, cardHp, bossHp });
         setRaidLog(prev => [...prev, `Turn ${turn}: ${t.battle.raid.bossDmg(card.username, d1, c1, t1, w1)}`]);
         if (bossHp <= 0) break;
         const { dmg: d2, isCrit: c2, isType: t2, isWeak: w2 } = calcDamage(boss.atk, card.def, boss.int, boss.luk, boss.element, card.element);
         cardHp = Math.max(0, cardHp - d2);
         setRaidCurrentCardHp(cardHp);
+        raidSnaps.push({ cardIdx: ci, card: rawCard, cardHp, bossHp });
         setRaidLog(prev => [...prev, `Turn ${turn}: ${t.battle.raid.bossAtk(card.username, d2, c2, t2, w2)}`]);
         turn++;
         totalTurns++;
@@ -256,7 +339,7 @@ function BattlePageInner() {
     addRaidUsedCards(deck.map(c => c.id));
     const cleared = bossHp <= 0;
     if (cleared) { clearRaid(); incrementRaidClearCount(); }
-    addRaidHistory({ date: new Date().toLocaleDateString(), bossName: raidBossCard.displayName, totalDmg, cleared });
+    addRaidHistory({ date: new Date().toLocaleDateString(), bossName: raidBossCard.displayName, totalDmg, cleared, log: raidLog, snaps: raidSnaps });
     markRaidMission();
     // カードランキングに各カードの結果を送信
     deck.forEach(card => {
@@ -277,146 +360,15 @@ function BattlePageInner() {
 
   // メニュー画面
   if (view === 'menu') {
-    const KYU_LIST: Kyu[] = ["LR","UR","SSR","SR","R","N","C"];
-    const total = battleHistory.length;
-    const wins = battleHistory.filter(b => b.winner === 'player').length;
-    const losses = battleHistory.filter(b => b.winner === 'enemy').length;
-    const draws = total - wins - losses;
-    const winRate = total > 0 ? (wins / total * 100).toFixed(1) : "0.0";
-    const avgTurns = total > 0 ? (battleHistory.reduce((s, b) => s + b.turns, 0) / total).toFixed(1) : "0.0";
-    // {t.battle.streak}
-    let maxStreak = 0, curStreak = 0;
-    for (const b of battleHistory) { if (b.winner === 'player') { curStreak++; maxStreak = Math.max(maxStreak, curStreak); } else curStreak = 0; }
-    const currentStreak = curStreak;
-    // 級別
-    const kyuStats = KYU_LIST.map(k => {
-      const ks = battleHistory.filter(b => b.kyu === k);
-      const kw = ks.filter(b => b.winner === 'player').length;
-      const kl = ks.filter(b => b.winner === 'enemy').length;
-      return { k, total: ks.length, wins: kw, losses: kl, draws: ks.length - kw - kl,
-        winRate: ks.length > 0 ? (kw / ks.length * 100).toFixed(1) : "0.0",
-        avgTurns: ks.length > 0 ? (ks.reduce((s, b) => s + b.turns, 0) / ks.length).toFixed(1) : "0.0" };
-    });
-    // カード{t.battle.winRate}ランキング（3戦以上優先）
-    const cardMap = new Map<string, { wins: number; total: number; card: typeof collection[0] | undefined }>();
-    for (const b of battleHistory) {
-      const c = collection.find(c => c.id === b.playerCardId);
-      if (!cardMap.has(b.playerCardId)) cardMap.set(b.playerCardId, { wins: 0, total: 0, card: c });
-      const e = cardMap.get(b.playerCardId)!;
-      e.total++; if (b.winner === 'player') e.wins++;
-    }
-    const cardRankings = KYU_LIST.map(k => ({
-      k,
-      cards: [...cardMap.entries()]
-        .filter(([, v]) => v.card?.rarity === k)
-        .map(([id, v]) => ({ id, ...v, winRate: v.total > 0 ? v.wins / v.total * 100 : 0,
-          wl: `${v.wins}-${v.total - v.wins}-0` }))
-        .sort((a, b) => (b.total >= 3 ? 1 : -1) - (a.total >= 3 ? 1 : -1) || b.winRate - a.winRate)
-    })).filter(r => r.cards.length > 0);
-
-    return (
-      <div className="min-h-dvh bg-gray-950 text-white py-10 px-4 flex flex-col items-center gap-6 slide-in-up">
-        <h1 className="text-2xl sm:text-4xl font-black bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">{ t.battle.title}</h1>
-        <div className="text-sm font-bold px-4 py-2 rounded-xl bg-sky-900/60 border border-sky-500/40 text-sky-300">{t.battle.weather(getTodayWeather())}</div>
-        <div className="grid grid-cols-2 gap-3 w-full max-w-2xl">
-          <button
-            onClick={() => { setSelectFor('battle'); setView('select'); setPlayerCard(null); setEnemyCard(null); setLog([]); setResult(null); }}
-            className="ripple-btn flex-1 py-4 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl font-bold text-lg hover:opacity-90 transition shadow-lg shadow-red-500/30 text-left px-5"
-          >
-            <div className="flex items-center gap-2 mb-1">{t.battle.random}</div>
-            <div className="text-xs text-red-100 font-normal opacity-90">{t.battle.randomDesc}</div>
-          </button>
-          <button onClick={() => setView('raid')}
-            className="ripple-btn flex-1 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl font-bold text-lg hover:opacity-90 transition shadow-lg shadow-blue-500/30 text-left px-5">
-            <div className="flex items-center gap-2 mb-1">{t.battle.raid.title}</div>
-            <div className="text-xs text-blue-100 font-normal opacity-90">{t.battle.raidDesc}</div>
-          </button>
-          <button onClick={() => setView('team')}
-            className="ripple-btn flex-1 py-4 bg-gradient-to-r from-green-600 to-teal-600 rounded-2xl font-bold text-lg hover:opacity-90 transition shadow-lg shadow-green-500/30 text-left px-5">
-            <div className="flex items-center gap-2 mb-1">{t.battle.team.title}</div>
-            <div className="text-xs text-green-100 font-normal opacity-90">{t.battle.team.subtitle}</div>
-          </button>
-          <button onClick={() => { setSelectFor('online'); setView('select'); setPlayerCard(null); setEnemyCard(null); setLog([]); setResult(null); }}
-            className="ripple-btn flex-1 py-4 bg-gradient-to-r from-violet-600 to-purple-600 rounded-2xl font-bold text-lg hover:opacity-90 transition shadow-lg shadow-violet-500/30 text-left px-5">
-            <div className="flex items-center gap-2 mb-1">{t.battle.online}</div>
-            <div className="text-xs text-violet-100 font-normal opacity-90">{t.battle.onlineDesc}</div>
-          </button>
-        </div>
-        <p className="text-gray-600 text-sm">{t.common.cards(collection.length)}</p>
-
-        {/* {t.battle.stats} */}
-        <div className="w-full max-w-2xl space-y-4">
-          <h2 className="text-lg font-bold text-gray-300">📊 {t.battle.stats}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-            {[[t.battle.totalBattles, total],[t.battle.winRate, `${winRate}%`],[t.battle.avgTurns, avgTurns],[t.battle.streak, maxStreak],
-              [t.battle.wins, wins],[t.battle.losses, losses],[t.battle.draws, draws],[t.battle.currentStreak, currentStreak]].map(([label, val]) => (
-              <div key={label as string} className="bg-gray-800 rounded-xl p-3">
-                <div className="text-xs text-gray-400 mb-1">{label}</div>
-                <div className="text-xl font-bold">{val}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* 級別成績 */}
-          <h2 className="text-lg font-bold text-gray-300">{t.battle.kyuStats}</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[400px] text-sm text-center">
-              <thead><tr className="text-gray-400 border-b border-gray-700">
-                {t.battle.kyuHeaders.map(h => <th key={h} className="py-2 px-2">{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {kyuStats.map(({ k, total: t, wins: w, losses: l, draws: d, winRate: wr, avgTurns: at }) => (
-                  <tr key={k} className="border-b border-gray-800 hover:bg-gray-800/50">
-                    <td className="py-2 px-2 font-bold">{k}</td>
-                    <td>{t}</td><td className="text-green-400">{w}</td>
-                    <td className="text-red-400">{l}</td><td>{d}</td>
-                    <td>{wr}%</td><td>{at}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* カード{t.battle.winRate}ランキング */}
-          {cardRankings.length > 0 && (
-            <>
-              <h2 className="text-lg font-bold text-gray-300">{t.battle.cardRanking}</h2>
-              {cardRankings.map(({ k, cards }) => (
-                <div key={k} className="bg-gray-800/60 rounded-xl p-3">
-                  <div className="font-bold text-sm mb-2">{k} <span className="text-gray-400 font-normal">{t.battle.kyuHeaders[1]}: {cards.reduce((s, c) => s + c.total, 0)}</span></div>
-                  <ol className="space-y-1">
-                    {cards.map((c, i) => (
-                      <li key={c.id} className="flex justify-between text-sm">
-                        <span className="text-gray-300">{i + 1}. {c.card?.displayName ?? c.id} <span className="text-gray-500 text-xs">#{c.id.slice(0,6)} / {c.wl}</span></span>
-                        <span className={`font-bold ${c.total >= 3 ? "text-yellow-400" : "text-gray-300"}`}>{c.winRate.toFixed(1)}%</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* オンライン対戦履歴 */}
-          {battleHistory.filter(b => b.opponentName).length > 0 && (
-            <>
-              <h2 className="text-lg font-bold text-gray-300">{t.battle.onlineHistoryTitle}</h2>
-              <div className="space-y-1">
-                {[...battleHistory].reverse().filter(b => b.opponentName).slice(0, 10).map((b, i) => (
-                  <div key={i} className="flex justify-between items-center bg-gray-800/60 rounded-lg px-3 py-2 text-sm">
-                    <span className="text-gray-300">vs {b.opponentName}</span>
-                    <span className={`font-bold ${b.winner === 'player' ? 'text-green-400' : 'text-red-400'}`}>
-                      {b.winner === 'player' ? t.battle.result.win : t.battle.result.lose}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    );
+    return <BattleMenuView t={t} collection={collection} battleHistory={battleHistory}
+      raidHistory={raidHistory} raidBossCard={raidBossCard} raidBossMaxHp={raidBossMaxHp}
+      setView={setView} setSelectFor={setSelectFor} setPlayerCard={setPlayerCard}
+      setEnemyCard={setEnemyCard} setLog={setLog} setResult={setResult}
+      onReplay={(log, cards) => { setLog(log); if (cards) { setReplayCards(cards); setReplayPHp(cards.p.hp); setReplayEHp(cards.e.hp); } else { setReplayCards(null); } setReplayRounds(null); setReplayFrom(view); setReplayIdx(0); setView('replay'); }}
+      onReplayRaid={raidReplay}
+    />;
   }
+
 
   // カード選択画面
   if (view === 'select') {
@@ -493,6 +445,128 @@ function BattlePageInner() {
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // リプレイ画面
+  if (view === 'replay') {
+    // レイドsnapsあり → バトル画面再現
+    if (!replayCards && replayRaidSnaps && replayBossCard) {
+      const done = replayIdx >= replayRaidSnaps.length;
+      const replayLog = log.slice(0, Math.ceil(replayIdx * log.length / replayRaidSnaps.length));
+      return (
+        <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center px-4 py-6 gap-4 slide-in-up">
+          <div className="flex items-center justify-between w-full max-w-2xl">
+            <button onClick={() => setView(replayFrom)} className="text-gray-400 hover:text-white text-sm">{t.battle.back}</button>
+            <h1 className="text-xl font-black text-yellow-400">{t.battle.replay.title}</h1>
+            <span className="text-xs text-gray-500">{replayIdx}/{replayRaidSnaps.length}</span>
+          </div>
+          <div className="flex justify-center items-start gap-4 sm:gap-8 flex-wrap">
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-sm text-blue-400 font-bold">{replayRaidCard?.displayName ?? '...'}</span>
+              {replayRaidCard && <TcgCard card={replayRaidCard} size="lg" />}
+              <div className="w-full max-w-[16rem]">
+                <div className="flex justify-between text-xs mb-1"><span className="text-gray-400">HP</span><span className="text-white">{replayRaidCardHp} / {replayRaidCard?.hp ?? 0}</span></div>
+                <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${replayRaidCard ? Math.max(0, replayRaidCardHp / replayRaidCard.hp * 100) : 100}%` }} />
+                </div>
+              </div>
+            </div>
+            <div className="text-2xl sm:text-4xl font-black text-gray-600 sm:mt-20">VS</div>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-sm text-red-400 font-bold">{t.battle.raid.boss}</span>
+              <TcgCard card={replayBossCard} size="lg" />
+              <div className="w-full max-w-[16rem]">
+                <div className="flex justify-between text-xs mb-1"><span className="text-gray-400">{t.battle.raid.bossHp}</span><span className="text-orange-400 font-bold">{replayRaidBossHp.toLocaleString()} / {replayBossMaxHp.toLocaleString()}</span></div>
+                <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-500" style={{ width: `${Math.max(0, replayRaidBossHp / replayBossMaxHp * 100)}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+          {done && <div className="text-yellow-400 font-bold">{t.battle.replay.done}</div>}
+          <div className="flex items-center gap-3 text-sm justify-center">
+            <span className="text-gray-400">{t.battle.speed}</span>
+            <span className="text-xs text-gray-500">{t.battle.slow}</span>
+            <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} defaultValue={1300 - localSpeed}
+        onInput={e => setLocalSpeed(1300 - Number((e.target as HTMLInputElement).value))} className="w-32 accent-pink-500" />
+            <span className="text-xs text-gray-500">{t.battle.fast}</span>
+    </div>
+          {replayLog.length > 0 && (
+            <div className="max-w-lg w-full bg-gray-900 rounded-xl p-4 space-y-1 max-h-40 overflow-y-auto">
+              {replayLog.map((l, i) => <p key={i} className={`text-sm ${l.startsWith("━━") ? "text-orange-400 font-bold" : l.includes("defeated") ? "text-red-400" : "text-gray-300"}`}>{l}</p>)}
+            </div>
+          )}
+          <button onClick={() => setView(replayFrom)} className="px-6 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition">{t.battle.back}</button>
+        </div>
+      );
+    }
+    // ログのみ表示（snapsなし）
+    if (!replayCards) return (
+      <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center gap-4 px-4 py-10 slide-in-up">
+        <h2 className="text-2xl font-black text-yellow-400">{t.battle.replay.title}</h2>
+        <div className="w-full max-w-2xl bg-gray-800/80 rounded-2xl p-4 space-y-1 text-xs font-mono text-gray-300 max-h-[70vh] overflow-y-auto">
+          {log.map((l, i) => <div key={i} className={l.includes("🏆") ? "text-yellow-400 font-bold" : l.includes("💀") ? "text-red-400 font-bold" : ""}>{l}</div>)}
+        </div>
+        <button onClick={() => setView(replayFrom)} className="px-6 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition">{t.battle.back}</button>
+      </div>
+    );
+    const rp = replayCards.p, re = replayCards.e;
+    const replayLog = replayCards.hpSnaps.length > 0 ? log.slice(0, replayIdx * Math.ceil(log.length / replayCards.hpSnaps.length)) : log;
+    const done = replayIdx >= replayCards.hpSnaps.length;
+    return (
+      <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center px-4 py-6 gap-4 slide-in-up">
+        <div className="flex items-center justify-between w-full max-w-2xl">
+          <button onClick={() => setView(replayFrom)} className="text-gray-400 hover:text-white text-sm">{t.battle.back}</button>
+          <h1 className="text-xl font-black text-yellow-400">{t.battle.replay.title}</h1>
+          <span className="text-xs text-gray-500">{replayRounds ? `R${replayRoundIdx + 1}/${replayRounds.length} ` : ''}{replayIdx}/{replayCards.hpSnaps.length}</span>
+        </div>
+        <div className="flex justify-center items-start gap-4 sm:gap-8 flex-wrap">
+          {/* プレイヤー */}
+          <div className={`flex flex-col items-center gap-2 relative ${replayShake === 'player' ? 'screen-shake' : ''}`}>
+            <span className="text-sm text-blue-400 font-bold">{rp.displayName}</span>
+            <TcgCard card={rp} size="lg" />
+            {replayDmgPop?.side === 'player' && <div key={replayDmgPop.key} className="dmg-pop absolute top-8 left-1/2 -translate-x-1/2 text-2xl font-black text-red-400 pointer-events-none z-10">-{replayDmgPop.val}</div>}
+            <div className="w-full max-w-[16rem]">
+              <div className="flex justify-between text-xs mb-1"><span className="text-gray-400">HP</span><span className="text-white">{replayPHp} / {rp.hp}</span></div>
+              <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-500 ${replayHpFlash === 'player' ? 'hp-flash' : ''}`}
+                  style={{ width: `${Math.max(0, replayPHp / rp.hp * 100)}%`, background: replayPHp / rp.hp < 0.25 ? '#ef4444' : replayPHp / rp.hp < 0.5 ? '#f59e0b' : '#22c55e' }} />
+              </div>
+            </div>
+          </div>
+          <div className="text-2xl sm:text-4xl font-black text-gray-600 sm:mt-20">VS</div>
+          {/* 敵 */}
+          <div className={`flex flex-col items-center gap-2 relative ${replayShake === 'enemy' ? 'screen-shake' : ''}`}>
+            <span className="text-sm text-red-400 font-bold">{re.displayName}</span>
+            <TcgCard card={re} size="lg" />
+            {replayDmgPop?.side === 'enemy' && <div key={replayDmgPop.key} className="dmg-pop absolute top-8 left-1/2 -translate-x-1/2 text-2xl font-black text-red-400 pointer-events-none z-10">-{replayDmgPop.val}</div>}
+            <div className="w-full max-w-[16rem]">
+              <div className="flex justify-between text-xs mb-1"><span className="text-gray-400">HP</span><span className="text-white">{replayEHp} / {re.hp}</span></div>
+              <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-500 ${replayHpFlash === 'enemy' ? 'hp-flash' : ''}`}
+                  style={{ width: `${Math.max(0, replayEHp / re.hp * 100)}%`, background: replayEHp / re.hp < 0.25 ? '#ef4444' : replayEHp / re.hp < 0.5 ? '#f59e0b' : '#22c55e' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+        {done && <div className="text-yellow-400 font-bold">{t.battle.replay.done}</div>}
+        <div className="flex items-center gap-3 text-sm justify-center">
+          <span className="text-gray-400">{t.battle.speed}</span>
+          <span className="text-xs text-gray-500">{t.battle.slow}</span>
+          <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} defaultValue={1300 - localSpeed}
+        onInput={e => setLocalSpeed(1300 - Number((e.target as HTMLInputElement).value))} className="w-32 accent-pink-500" />
+          <span className="text-xs text-gray-500">{t.battle.fast}</span>
+    </div>
+        {/* バトルログ */}
+        {replayLog.length > 0 && (
+          <div className="max-w-lg w-full bg-gray-900 rounded-xl p-4 space-y-1 max-h-40 overflow-y-auto">
+            {replayLog.map((line, i) => (
+              <p key={i} className={`text-sm ${line.includes("🏆") ? "text-yellow-400 font-bold" : line.includes("💀") ? "text-red-400 font-bold" : "text-gray-300"}`}>{line}</p>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -651,245 +725,25 @@ function BattlePageInner() {
   }
 
   // レイド{t.battle.raid.deckSelect}画面
-  if (view === 'raid') {
-    if (raidBossLoading || !raidBossCard) {
-      return (
-        <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center justify-center gap-4">
-          <div className="text-gray-400 animate-pulse text-lg">🔥 {t.battle.raid.loading}...</div>
-          <button onClick={() => setView('menu')} className="text-gray-500 text-sm hover:text-white">{ t.battle.back}</button>
-        </div>
-      );
-    }
-    const currentBossHp = raidBossHp > 0 ? raidBossHp : raidBossCard.hp;
-    const currentBossMaxHp = raidBossMaxHp > 0 ? raidBossMaxHp : raidBossCard.hp;
-    const cleared = raidDate === todayStr && raidCleared;
-    const hpPct = currentBossMaxHp > 0 ? Math.max(0, currentBossHp / currentBossMaxHp * 100) : 100;
-    const deck = raidDeck.filter(id => collection.find(c => c.id === id));
-    const toggleDeck = (id: string) => {
-      if (deck.includes(id)) setRaidDeck(deck.filter(x => x !== id));
-      else if (deck.length < 10) setRaidDeck([...deck, id]);
-    };
-    return (
-      <div className="min-h-dvh bg-gray-950 text-white py-10 px-4 flex flex-col items-center gap-6">
-        <div className="flex items-center gap-4 w-full max-w-2xl">
-          <button onClick={() => setView('menu')} className="text-gray-400 hover:text-white text-sm">{ t.battle.back}</button>
-          <h1 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">{t.battle.raid.title}</h1>
-        </div>
-        {/* ボス情報 */}
-        <div className="w-full max-w-2xl bg-gray-800/60 rounded-2xl p-5 border border-orange-500/30">
-          <div className="flex flex-col sm:flex-row gap-4 items-start mb-3">
-            <div style={{ pointerEvents: 'none' }}>
-              <TcgCard card={raidBossCard} size="lg" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs text-orange-400 font-bold mb-1">{t.battle.raid.todayBoss}</div>
-              {cleared && <div className="text-green-400 font-bold mb-2">✅ {t.battle.raid.cleared}</div>}
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-400">{t.battle.raid.bossHp}</span>
-                <span className="font-bold">{currentBossHp.toLocaleString()} / {currentBossMaxHp.toLocaleString()}</span>
-              </div>
-              <div className="h-3 bg-gray-700 rounded-full overflow-hidden mb-4">
-                <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-500"
-                  style={{ width: `${hpPct}%` }} />
-              </div>
-              <button
-                onClick={() => { setRaidLog([]); setRaidResult(null); setView('raid-battle'); startRaidBattle(); }}
-                disabled={deck.length === 0 || cleared}
-                className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl font-bold text-lg hover:opacity-90 disabled:opacity-40 transition"
-              >
-                {cleared ? t.battle.raid.clearedBtn : deck.length === 0 ? t.battle.raid.noCards : t.battle.raid.challenge(deck.length)}
-              </button>
-            </div>
-          </div>
-        </div>
-        {/* {t.battle.raid.deckSelect} */}
-        <div className="w-full max-w-4xl">
-          <div className="flex justify-between items-center mb-3">
-            <span className="font-bold text-gray-300">{t.battle.raid.deckSelect} <span className="text-gray-500 text-sm">({deck.length}/10)</span></span>
-            {deck.length > 0 && <button onClick={() => setRaidDeck([])} className="text-xs text-gray-500 hover:text-red-400">{ t.battle.raid.deckClear}</button>}
-          </div>
-          <div className="flex flex-wrap gap-2 justify-center items-center mb-2">
-            <span className="text-gray-400 text-sm font-bold">{ t.collection.sort}</span>
-            {(Object.entries(t.collection.sortKeys) as [string, string][]).filter(([k]) => ["pulledAt","rarity","name","atk","def","spd","hp","int","luk"].includes(k)).map(([key, label]) => (
-              <button key={key} onClick={() => setBattleSort(key as typeof battleSort)}
-                className={`px-3 py-1 rounded-full text-sm font-bold transition ${battleSort === key ? "bg-orange-500 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-center mb-4">
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder={t.collection.search}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm w-full max-w-xs focus:outline-none focus:border-orange-500" />
-          </div>
-          <div className="flex flex-wrap gap-4 justify-center">
-            {sortBattle(collection.filter(c => !search || c.username.includes(search) || c.displayName.includes(search))).map(card => {
-              const selected = deck.includes(card.id);
-              const used = raidDate === todayStr && raidUsedCards.includes(card.id);
-              const idx = deck.indexOf(card.id);
-              return (
-                <div key={card.id} onClick={() => !used && toggleDeck(card.id)}
-                  className={`transition rounded-xl relative ${used ? "opacity-30 cursor-not-allowed" : "cursor-pointer hover:scale-105"} ${selected ? "ring-4 ring-orange-500 scale-105" : ""}`}>
-                  <div style={{ pointerEvents: 'none' }}>
-                    <TcgCard card={card} size="lg" />
-                  </div>
-                  {selected && (
-                    <div className="absolute -top-2 -right-2 w-7 h-7 bg-orange-500 rounded-full flex items-center justify-center text-white font-black text-sm z-10">
-                      {idx + 1}
-                    </div>
-                  )}
-                  {used && (
-                    <div className="absolute inset-0 flex items-center justify-center z-10">
-                      <span className="bg-gray-900/80 text-gray-400 text-xs font-bold px-2 py-1 rounded-lg">{t.battle.raid.used}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
+  // レイド画面群
+  if (view === 'raid' || view === 'raid-battle' || view === 'raid-result') {
+    return <RaidViews t={t} view={view} setView={setView}
+      raidBossLoading={raidBossLoading} raidBossCard={raidBossCard} raidBossHp={raidBossHp}
+      raidBossMaxHp={raidBossMaxHp} raidCleared={raidCleared} raidDeck={raidDeck}
+      setRaidDeck={setRaidDeck} raidUsedCards={raidUsedCards} raidLog={raidLog}
+      raidRunning={raidRunning} raidResult={raidResult} raidBossHpLive={raidBossHpLive}
+      raidHpFlash={raidHpFlash} raidCurrentCard={raidCurrentCard} raidCurrentCardHp={raidCurrentCardHp}
+      raidHistory={raidHistory} collection={collection} battleSpeed={battleSpeed}
+      setBattleSpeed={setBattleSpeed} battleSort={battleSort} setBattleSort={setBattleSort}
+      search={search} setSearch={setSearch} sortBattle={sortBattle}
+      onlineNames={onlineNames} playerCard={playerCard} todayStr={todayStr}
+      startRaidBattle={startRaidBattle}
+      setRaidLog={setRaidLog as (fn: (p: string[]) => string[]) => void}
+      setRaidResult={setRaidResult as (r: null) => void}
+      onReplay={raidReplay}
+    />;
   }
 
-  // レイドバトル画面
-  if (view === 'raid-battle') {
-    if (!raidBossCard) return null;
-    const currentBossHp = raidBossHp > 0 ? raidBossHp : raidBossCard.hp;
-    const currentBossMaxHp = raidBossMaxHp > 0 ? raidBossMaxHp : raidBossCard.hp;
-    const hpPct = currentBossMaxHp > 0 ? Math.max(0, currentBossHp / currentBossMaxHp * 100) : 100;
-    const deck = raidDeck.map(id => collection.find(c => c.id === id)).filter(Boolean) as TwitterCard[];
-    return (
-      <div className="min-h-dvh bg-gray-950 text-white py-10 px-4">
-        <div className="flex items-center justify-center gap-4 mb-6">
-          <h1 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">{t.battle.raid.battleTitle}</h1>
-        </div>
-
-        {/* カード表示 */}
-        <div className="flex justify-center items-start gap-4 sm:gap-8 mb-8 flex-wrap">
-          {/* 現在戦闘中カード */}
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-sm text-blue-400 font-bold">{ (onlineNames?.my || playerCard?.displayName) ?? t.battle.you}</span>
-            {raidCurrentCard && <TcgCard card={raidCurrentCard} size="lg" />}
-            <div className="w-full max-w-[16rem]">
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-400">HP</span>
-                <span className="text-white font-bold">{raidCurrentCardHp} / {raidCurrentCard?.hp ?? 0}</span>
-              </div>
-              <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500 rounded-full transition-all duration-500"
-                  style={{ width: `${raidCurrentCard ? Math.max(0, raidCurrentCardHp / raidCurrentCard.hp * 100) : 100}%` }} />
-              </div>
-            </div>
-          </div>
-
-          <div className="text-2xl sm:text-4xl font-black text-gray-600 sm:mt-20">VS</div>
-
-          {/* ボス */}
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-sm text-red-400 font-bold">{t.battle.raid.boss}</span>
-            <TcgCard card={raidBossCard} size="lg" />
-            <div className="w-full max-w-[16rem]">
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-400">{t.battle.raid.bossHp}</span>
-                <span className="text-orange-400 font-bold">{raidBossHpLive.toLocaleString()} / {(raidBossMaxHp > 0 ? raidBossMaxHp : raidBossCard.hp).toLocaleString()}</span>
-              </div>
-              <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-                <div className={`h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-500 ${raidHpFlash ? 'hp-flash' : ''}`}
-                  style={{ width: `${Math.max(0, raidBossHpLive / (raidBossMaxHp > 0 ? raidBossMaxHp : raidBossCard.hp) * 100)}%` }} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 速度スライダー */}
-        <div className="flex items-center gap-3 text-sm justify-center mb-4">
-          <span className="text-gray-400">{t.battle.speed}</span>
-          <span className="text-xs text-gray-500">{ t.battle.slow}</span>
-          <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} value={1300 - battleSpeed}
-            onChange={e => setBattleSpeed(1300 - Number(e.target.value))}
-            className="w-32 accent-orange-500" />
-          <span className="text-xs text-gray-500">{ t.battle.fast}</span>
-        </div>
-
-        {/* ログ */}
-        <div className="max-w-lg mx-auto bg-gray-900 rounded-xl p-4 space-y-1 max-h-40 sm:max-h-64 overflow-y-auto overscroll-contain">
-          {raidLog.map((l, i) => (
-            <div key={i} className={`text-sm ${l.startsWith("━━") ? "text-orange-400 font-bold" : l.includes("defeated") ? "text-red-400" : "text-gray-300"}`}>{l}</div>
-          ))}
-          {raidRunning && <div className="text-gray-500 animate-pulse text-sm">{t.battle.raid.battling}</div>}
-        </div>
-      </div>
-    );
-  }
-
-  // レイドリザルト画面
-  if (view === 'raid-result' && raidResult && raidBossCard) {
-    const currentBossHp = raidBossHp;
-    const currentBossMaxHp = raidBossMaxHp;
-    const hpPct = currentBossMaxHp > 0 ? Math.max(0, currentBossHp / currentBossMaxHp * 100) : 0;
-    const copyText = t.battle.raid.copyText(raidResult.cleared, raidBossCard.displayName, raidResult.totalDmg, currentBossHp, currentBossMaxHp, raidResult.turns);
-    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(copyText)}`;
-    return (
-      <div className={`min-h-dvh bg-gray-950 text-white py-10 px-4 flex flex-col items-center gap-6 slide-in-up ${raidResult.cleared ? 'raid-clear-flash' : ''}`}>
-        {raidResult.cleared && <Confetti count={60} />}
-
-        <div className="flex items-center justify-center gap-4">
-          <h1 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">{t.battle.raid.resultTitle}</h1>
-        </div>
-
-        <div className={`text-2xl sm:text-3xl font-black ${raidResult.cleared ? "text-yellow-400" : "text-orange-400"}`}>
-          {raidResult.cleared ? t.battle.raid.success : t.battle.raid.end}
-        </div>
-
-        <TcgCard card={raidBossCard} size="lg" />
-
-        <div className="bg-gray-800/80 rounded-2xl p-4 w-full max-w-2xl space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-gray-400">{t.battle.raid.resultLabel}</span><span className={`font-bold ${raidResult.cleared ? "text-yellow-400" : "text-orange-400"}`}>{raidResult.cleared ? t.battle.raid.success : t.battle.raid.end}</span></div>
-          <div className="flex justify-between"><span className="text-gray-400">{t.battle.raid.dmg}</span><span className="font-bold">{raidResult.totalDmg.toLocaleString()}</span></div>
-          <div className="flex justify-between"><span className="text-gray-400">{t.battle.raid.totalTurns}</span><span className="font-bold">{raidResult.turns}</span></div>
-          <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-400">{t.battle.raid.remainBossHp}</span>
-            <span className="font-bold">{currentBossHp.toLocaleString()} / {currentBossMaxHp.toLocaleString()}</span>
-          </div>
-          <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-500"
-              style={{ width: `${hpPct}%` }} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full max-w-2xl">
-          <button onClick={() => navigator.clipboard.writeText(copyText)}
-            className="px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition">{ t.battle.result.copyBtn}</button>
-          <button onClick={() => window.open(shareUrl, '_blank')}
-            className="px-5 py-3 bg-sky-500 rounded-xl font-bold hover:bg-sky-400 transition">{ t.battle.result.shareBtn}</button>
-          <button onClick={() => window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank')}
-            className="px-5 py-3 bg-blue-500 rounded-xl font-bold hover:bg-blue-400 transition">Bluesky</button>
-          <button onClick={() => { setRaidLog([]); setRaidResult(null); setView('raid'); }}
-            className="px-5 py-3 bg-orange-600 rounded-xl font-bold hover:bg-orange-500 transition">{t.battle.raid.retry}</button>
-          <div /><div />
-          <button onClick={() => setView('menu')}
-            className="px-5 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition text-gray-300">{ t.battle.result.menu}</button>
-        </div>
-
-        {raidHistory.length > 0 && (
-          <div className="w-full max-w-2xl">
-            <h2 className="text-sm font-bold text-gray-400 mb-2">{t.battle.raidHistoryTitle}</h2>
-            <div className="space-y-1">
-              {raidHistory.slice(0, 10).map((h, i) => (
-                <div key={i} className="flex justify-between items-center bg-gray-800/60 rounded-lg px-3 py-2 text-xs">
-                  <span className="text-gray-400">{h.date}</span>
-                  <span className="text-gray-300 truncate mx-2">{h.bossName}</span>
-                  <span className="text-gray-300">{h.totalDmg.toLocaleString()}dmg</span>
-                  <span className={`font-bold ml-2 ${h.cleared ? 'text-yellow-400' : 'text-orange-400'}`}>{h.cleared ? t.battle.raid.defeatedLabel : t.battle.raid.challengeLabel}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   // オンライン対戦画面
   if (view === 'online') {
@@ -914,6 +768,8 @@ function BattlePageInner() {
       addTeamBattleResult={addTeamBattleResult}
       addBattleResult={addBattleResult}
       onBack={() => setView('menu')}
+      onReplay={(log, cards) => { setLog(log); if (cards) { setReplayCards(cards); setReplayPHp(cards.p.hp); setReplayEHp(cards.e.hp); } else { setReplayCards(null); } setReplayRounds(null); setReplayFrom(view); setReplayIdx(0); setView('replay'); }}
+      onReplayAll={(rounds) => { const first = rounds[0]; setLog(first.log); setReplayCards(first); setReplayPHp(first.p.hp); setReplayEHp(first.e.hp); setReplayRounds(rounds); setReplayRoundIdx(0); setReplayFrom(view); setReplayIdx(0); setView('replay'); }}
       t={t}
       battleSpeed={battleSpeed}
       setBattleSpeed={setBattleSpeed}
@@ -986,8 +842,8 @@ function BattlePageInner() {
       <div className="flex items-center gap-3 text-sm justify-center mb-4">
         <span className="text-gray-400">{t.battle.speed}</span>
         <span className="text-xs text-gray-500">{ t.battle.slow}</span>
-        <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} value={1300 - battleSpeed}
-          onChange={e => setBattleSpeed(1300 - Number(e.target.value))}
+        <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} defaultValue={1300 - localSpeed}
+          onInput={e => setLocalSpeed(1300 - Number((e.target as HTMLInputElement).value))}
           className="w-32 accent-pink-500" />
         <span className="text-xs text-gray-500">{ t.battle.fast}</span>
       </div>

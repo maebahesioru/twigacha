@@ -47,10 +47,10 @@ interface GameStore {
   raidMissionDone: boolean;
   markRaidMission: () => void;
   raidMissionRewarded: boolean;
-  battleHistory: { winner: 'player'|'enemy'; turns: number; kyu: string; playerCardId: string; opponentName?: string; pHp?: number; ko?: boolean; playerCardRarity?: string; enemyCardRarity?: string; mode?: string }[];
-  addBattleResult: (r: { winner: 'player'|'enemy'; turns: number; kyu: string; playerCardId: string; opponentName?: string; pHp?: number; ko?: boolean; playerCardRarity?: string; enemyCardRarity?: string; mode?: string }) => void;
-  teamBattleHistory: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: 'win'|'lose'|'draw'; opponentName?: string; kyu?: string }[];
-  addTeamBattleResult: (r: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: 'win'|'lose'|'draw'; opponentName?: string; kyu?: string }) => void;
+  battleHistory: { winner: 'player'|'enemy'; turns: number; kyu: string; playerCardId: string; opponentName?: string; pHp?: number; ko?: boolean; playerCardRarity?: string; enemyCardRarity?: string; mode?: string; log?: string[]; hpSnaps?: {pHp:number;eHp:number}[]; playerSnap?: TwitterCard; enemySnap?: TwitterCard }[];
+  addBattleResult: (r: { winner: 'player'|'enemy'; turns: number; kyu: string; playerCardId: string; opponentName?: string; pHp?: number; ko?: boolean; playerCardRarity?: string; enemyCardRarity?: string; mode?: string; log?: string[]; hpSnaps?: {pHp:number;eHp:number}[]; playerSnap?: TwitterCard; enemySnap?: TwitterCard }) => void;
+  teamBattleHistory: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: 'win'|'lose'|'draw'; opponentName?: string; kyu?: string; log?: string[]; rounds?: { p: TwitterCard; e: TwitterCard; hpSnaps: {pHp:number;eHp:number}[]; log: string[]; win: boolean }[] }[];
+  addTeamBattleResult: (r: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: 'win'|'lose'|'draw'; opponentName?: string; kyu?: string; log?: string[]; rounds?: { p: TwitterCard; e: TwitterCard; hpSnaps: {pHp:number;eHp:number}[]; log: string[]; win: boolean }[] }) => void;
   savedTeam: string[];
   setSavedTeam: (ids: string[]) => void;
   savedDecks: { name: string; ids: string[] }[];
@@ -81,8 +81,8 @@ interface GameStore {
   raidCleared: boolean;
   raidDeck: string[];
   raidUsedCards: string[];
-  raidHistory: { date: string; bossName: string; totalDmg: number; cleared: boolean }[];
-  addRaidHistory: (r: { date: string; bossName: string; totalDmg: number; cleared: boolean }) => void;
+  raidHistory: { date: string; bossName: string; totalDmg: number; cleared: boolean; log?: string[]; snaps?: { cardIdx: number; card: TwitterCard; cardHp: number; bossHp: number }[] }[];
+  addRaidHistory: (r: { date: string; bossName: string; totalDmg: number; cleared: boolean; log?: string[]; snaps?: { cardIdx: number; card: TwitterCard; cardHp: number; bossHp: number }[] }) => void;
   setRaidDeck: (ids: string[]) => void;
   damageRaidBoss: (dmg: number) => void;
   addRaidUsedCards: (ids: string[]) => void;
@@ -212,7 +212,7 @@ export const useGameStore = create<GameStore>()(
         const today = new Date().toDateString();
         const currentBonus = s.bonusPackDate === today ? s.bonusPacks : 0;
         return {
-          battleHistory: newHistory,
+          battleHistory: newHistory.slice(-20),
           ...(bonus > 0 ? { bonusPacks: currentBonus + bonus, bonusPackDate: today } : {}),
         };
       }),
