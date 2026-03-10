@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Star, Trash2, Link2 } from "lucide-react";
 import TcgCard from "@/components/TcgCard";
 import { useGameStore } from "@/store/useGameStore";
@@ -8,27 +9,49 @@ import type { Rarity, TwitterCard } from "@/types";
 import { sanitizeCollection } from "@/lib/card";
 import { playFavorite, playDelete } from "@/lib/audio";
 
-type SortKey = "rarity" | "name" | "id" | "atk" | "def" | "spd" | "hp" | "int" | "luk" | "pulledAt";
+type SortKey = "rarity" | "name" | "id" | "atk" | "def" | "spd" | "hp" | "int" | "luk" | "pulledAt" | "enhanceable";
 
 const RARITY_ORDER: Rarity[] = ["LR","UR","SSR","SR","R","N","C"];
 
-function sortCards(cards: TwitterCard[], key: SortKey): TwitterCard[] {
+function sortCards(cards: TwitterCard[], key: SortKey, all: TwitterCard[] = []): TwitterCard[] {
   return [...cards].sort((a, b) => {
     if (key === "rarity") return RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity);
     if (key === "name") return a.displayName.localeCompare(b.displayName);
     if (key === "id") return a.username.localeCompare(b.username);
     if (key === "pulledAt") return b.pulledAt - a.pulledAt;
+    if (key === "enhanceable") {
+      const ae = all.some(c => c.id !== a.id && c.username === a.username) ? 1 : 0;
+      const be = all.some(c => c.id !== b.id && c.username === b.username) ? 1 : 0;
+      return be - ae;
+    }
     return (b[key] as number) - (a[key] as number);
   });
 }
 
 export default function CollectionPage() {
-  const { collection, removeCard, totalPackCount, toggleFavorite, favorites } = useGameStore();
+  const { collection, removeCard, updateCard, totalPackCount, toggleFavorite, favorites } = useGameStore();
   const t = useT();
   const [sort, setSort] = useState<SortKey>("pulledAt");
   const [favOnly, setFavOnly] = useState(false);
+  const [enhanceOnly, setEnhanceOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [enhanceTarget, setEnhanceTargetState] = useState<string | null>(null);
+  const enhanceRef = useRef<string | null>(null);
+  const setEnhanceTarget = (id: string | null) => { enhanceRef.current = id; setEnhanceTargetState(id); };
+
+  const MAX_ENHANCE = 6;
+
+  const handleEnhance = (targetId: string, materialId: string) => {
+    const target = collection.find(c => c.id === targetId);
+    if (!target) return;
+    const enh = (target.enhance ?? 0) + 1;
+    const m = 1.1;
+    updateCard({ ...target, enhance: enh, atk: Math.round(target.atk * m), def: Math.round(target.def * m), spd: Math.round(target.spd * m), hp: Math.round(target.hp * m), int: Math.round(target.int * m), luk: Math.round(target.luk * m) });
+    removeCard(materialId);
+    setEnhanceTarget(null);
+    alert(t.collection.enhance.done(enh));
+  };
 
   const handleExport = async () => {
     const raw = JSON.parse(localStorage.getItem("twigacha-collection") ?? "{}");
@@ -70,9 +93,11 @@ export default function CollectionPage() {
   const filtered = sortCards(
     collection.filter(c => {
       if (favOnly && !favorites.includes(c.id)) return false;
+      if (enhanceOnly && !(collection.some(x => x.id !== c.id && x.username === c.username) && (c.enhance ?? 0) < MAX_ENHANCE)) return false;
       return !search || c.username.includes(search) || c.displayName.includes(search);
     }),
-    sort
+    sort,
+    collection
   );
 
   const SORTS: { key: SortKey; label: string }[] = [
@@ -141,6 +166,10 @@ export default function CollectionPage() {
           className={`px-3 py-1 rounded-full text-sm font-bold transition flex items-center gap-1 ${favOnly ? "bg-yellow-500 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>
           <Star size={12} fill={favOnly ? "currentColor" : "none"} /> {t.collection.favOnly}
         </button>
+        <button onClick={() => setEnhanceOnly(v => !v)}
+          className={`px-3 py-1 rounded-full text-sm font-bold transition ${enhanceOnly ? "bg-yellow-500 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>
+          ⬆️ {t.collection.enhance.btn.replace("⬆️ ", "")}
+        </button>
       </div>
 
       <div className="flex justify-center mb-6">
@@ -173,10 +202,45 @@ export default function CollectionPage() {
                 title={t.collection.cardShare}>
                 <Link2 size={14} />
               </button>
+              {(card.enhance ?? 0) < MAX_ENHANCE && collection.some(c => c.id !== card.id && c.username === card.username) && (
+                <button onClick={(e) => { e.stopPropagation(); setEnhanceTarget(card.id); }}
+                  className="absolute -top-3 -left-3 z-20 bg-yellow-500 hover:bg-yellow-400 text-white rounded-full p-1 opacity-100 transition-opacity"
+                  title={t.collection.enhance.btn}>
+                  ⬆️
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
+      {enhanceTarget && (() => {
+        const target = collection.find(c => c.id === enhanceTarget);
+        if (!target) return null;
+        const materials = collection.filter(c => c.id !== enhanceTarget && c.username === target.username);
+        return createPortal(
+          <div className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4" onClick={() => setEnhanceTarget(null)}>
+            <div className="bg-gray-900 text-white rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+              <h2 className="font-bold text-lg mb-1">{t.collection.enhance.title}</h2>
+              <p className="text-gray-400 text-sm mb-4">{t.collection.enhance.desc(MAX_ENHANCE)}</p>
+              {materials.length === 0 ? (
+                <p className="text-gray-400 text-sm">{t.collection.enhance.noMaterial}</p>
+              ) : (
+                <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
+                  {materials.map(m => (
+                    <button key={m.id} onClick={() => handleEnhance(enhanceTarget, m.id)}
+                      className="flex items-center gap-3 bg-gray-800 hover:bg-gray-700 rounded-xl px-4 py-2 text-left transition">
+                      <img src={m.avatar} className="w-8 h-8 rounded-full" alt="" />
+                      <span className="text-sm">{m.displayName || m.username} <span className="text-gray-400">({m.rarity}{(m.enhance ?? 0) > 0 ? `+${m.enhance}` : ""})</span></span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => setEnhanceTarget(null)} className="mt-4 w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm">{t.collection.enhance.cancel}</button>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }

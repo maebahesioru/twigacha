@@ -8,6 +8,7 @@ interface GameStore {
   collection: TwitterCard[];
   addCard: (card: TwitterCard) => void;
   removeCard: (id: string) => void;
+  updateCard: (card: TwitterCard) => void;
   hasCard: (id: string) => boolean;
   favorites: string[];
   toggleFavorite: (id: string) => void;
@@ -90,12 +91,12 @@ export const useGameStore = create<GameStore>()(
       collection: [],
       addCard: (card) =>
         set((s) => ({
-          collection: get().hasCard(card.id)
-            ? s.collection
-            : [card, ...s.collection],
+          collection: [get().hasCard(card.id) ? { ...card, id: `${card.id}_${Date.now()}` } : card, ...s.collection],
         })),
       removeCard: (id) =>
         set((s) => ({ collection: s.collection.filter((c) => c.id !== id) })),
+      updateCard: (card) =>
+        set((s) => ({ collection: s.collection.map((c) => c.id === card.id ? card : c) })),
       hasCard: (id) => get().collection.some((c) => c.id === id),
       favorites: [],
       toggleFavorite: (id) => {
@@ -216,7 +217,7 @@ export const useGameStore = create<GameStore>()(
       setBattleSort: (s) => set({ battleSort: s }),
       achievements: [],
       unlockAchievement: (id) => set((s) => ({ achievements: s.achievements.includes(id) ? s.achievements : [...s.achievements, id] })),
-      lang: typeof window !== "undefined" && navigator.language.startsWith("ja") ? "ja" : "en",
+      lang: "ja",
       setLang: (lang) => set({ lang }),
       raidClearCount: 0,
       incrementRaidClearCount: () => set((s) => ({ raidClearCount: s.raidClearCount + 1 })),

@@ -36,7 +36,7 @@ export default function TcgCard({ card, size = "md", onClick, selected }: Props)
     >
       {/* ヘッダー: レアリティ + 名前/ID + エレメント */}
       <div className="flex justify-between items-center px-1">
-        <span className="font-black text-white drop-shadow">{card.rarity}</span>
+        <span className="font-black text-white drop-shadow">{card.rarity}{(card.enhance ?? 0) > 0 && <span className="text-yellow-300 text-xs ml-0.5">+{card.enhance}</span>}</span>
         <div className="text-center flex-1 px-1 min-w-0">
           <p className="font-bold text-white truncate leading-tight text-[0.75rem]">{card.displayName} <span className="text-white/60 font-normal">(@{card.username})</span></p>
         </div>
@@ -55,6 +55,8 @@ export default function TcgCard({ card, size = "md", onClick, selected }: Props)
               height={s.avatar}
               className="object-cover w-full h-full"
               unoptimized
+              onLoad={e => (e.currentTarget as HTMLImageElement).style.opacity = "1"}
+              style={{ opacity: 0, transition: "opacity 0.3s" }}
             />
           ) : (
             <div

@@ -24,6 +24,7 @@ export interface TwitterCard {
   luk: number;
   pulledAt: number;
   skill?: string | null;
+  enhance?: number; // 0-5
 }
 
 export interface BattleState {

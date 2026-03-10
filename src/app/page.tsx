@@ -234,6 +234,15 @@ export default function GachaPage() {
     <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center py-10 px-4 slide-in-up">
       {missionConfetti && <Confetti count={80} />}
       <LoginBonus />
+      {process.env.NODE_ENV === "development" && (
+        <div className="fixed top-16 right-2 z-50 flex flex-col gap-1 bg-black/80 border border-yellow-500 rounded-lg p-2">
+          <p className="text-yellow-400 text-xs font-bold">🛠 DEBUG</p>
+          <button onClick={() => useGameStore.setState(s => ({ bonusPacks: (s.bonusPacks ?? 0) + 10, bonusPackDate: new Date().toDateString() }))}
+            className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-3 py-1 rounded">
+            +10パック
+          </button>
+        </div>
+      )}
 
       {/* ガチャボタン (結果表示中は非表示) */}
       {cards.length === 0 && (

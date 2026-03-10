@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGameStore } from "@/store/useGameStore";
 import { useT } from "@/hooks/useT";
 import { usePushNotification } from "@/hooks/usePushNotification";
@@ -12,6 +12,12 @@ export default function Navbar() {
   const t = useT();
   const [open, setOpen] = useState(false);
   const { state, subscribe } = usePushNotification();
+
+  useEffect(() => {
+    const stored = localStorage.getItem("twigacha-collection");
+    if (stored) return; // 既存ユーザーは変えない
+    if (!navigator.language.startsWith("ja")) setLang("en");
+  }, []);
   const NAV = [
     { href: "/", label: t.nav.gacha },
     { href: "/collection", label: t.nav.collection },
