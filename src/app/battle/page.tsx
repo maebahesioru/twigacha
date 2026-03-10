@@ -12,8 +12,7 @@ import { OnlineBattleView } from "./OnlineViews";
 import { TeamBattleView } from "./TeamBattleView";
 import { RaidViews } from "./RaidViews";
 import { BattleMenuView } from "./BattleMenuView";
-import { playAttack, playVictory, playDefeat } from "@/lib/audio";
-import { playRaidHit } from "@/lib/audio";
+import { playAttack, playVictory, playDefeat, playRaidHit } from "@/lib/audio";
 import Confetti from "@/components/Confetti";
 
 function BattlePageInner() {
@@ -339,6 +338,7 @@ function BattlePageInner() {
     setRaidTotalDmg(totalDmg);
     damageRaidBoss(totalDmg);
     addRaidUsedCards(deck.map(c => c.id));
+    setRaidDeck(raidDeck.filter(id => !deck.find(c => c.id === id)));
     const cleared = bossHp <= 0;
     if (cleared) { clearRaid(); incrementRaidClearCount(); }
     addRaidHistory({ date: new Date().toLocaleDateString(), bossName: raidBossCard.displayName, totalDmg, cleared, log: raidLogs, snaps: raidSnaps });

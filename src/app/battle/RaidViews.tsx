@@ -64,6 +64,7 @@ export function RaidViews(p: RaidProps) {
     const hpPct = currentBossMaxHp > 0 ? Math.max(0, currentBossHp / currentBossMaxHp * 100) : 100;
     const deck = raidDeck.filter(id => collection.find(c => c.id === id));
     const toggleDeck = (id: string) => {
+      if (raidUsedCards.includes(id)) return;
       if (deck.includes(id)) setRaidDeck(deck.filter(x => x !== id));
       else if (deck.length < 10) setRaidDeck([...deck, id]);
     };
