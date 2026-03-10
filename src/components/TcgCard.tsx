@@ -3,6 +3,7 @@ import React from "react";
 import Image from "next/image";
 import { Sword, Shield, Zap, Heart, Brain, Clover } from "lucide-react";
 import type { TwitterCard } from "@/types";
+import { useT } from "@/hooks/useT";
 import { RARITY_STYLE } from "@/lib/card";
 import { PASSIVE_SKILLS } from "@/lib/battle";
 
@@ -20,6 +21,7 @@ const SIZE = {
 };
 
 export default function TcgCard({ card, size = "md", onClick, selected }: Props) {
+  const t = useT();
   const s = SIZE[size];
   const gradient = RARITY_STYLE[card.rarity];
 
@@ -103,7 +105,7 @@ export default function TcgCard({ card, size = "md", onClick, selected }: Props)
       ) : null; })()}
       {card.ultimates && card.ultimates.length > 0 && size !== "sm" && (
         <div className="text-center px-1 mt-0.5">
-          <span className="text-red-300 font-bold" style={{ fontSize: "0.6rem" }}>💥 必殺×{card.ultimates.length}</span>
+          <span className="text-red-300 font-bold" style={{ fontSize: "0.6rem" }}>{t.battle.ultimateBadge(card.ultimates.length)}</span>
         </div>
       )}
 

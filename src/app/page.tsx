@@ -239,7 +239,7 @@ export default function GachaPage() {
           <p className="text-yellow-400 text-xs font-bold">🛠 DEBUG</p>
           <button onClick={() => useGameStore.setState(s => ({ bonusPacks: (s.bonusPacks ?? 0) + 10, bonusPackDate: new Date().toDateString() }))}
             className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-3 py-1 rounded">
-            +10パック
+            {t.gacha.tenPackLabel}
           </button>
         </div>
       )}
@@ -423,7 +423,7 @@ export default function GachaPage() {
                   <TcgCard card={current} size="lg" onClick={markTwitter} />
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleFavorite(current.id); }}
-                    aria-label={favorites.includes(current.id) ? "お気に入り解除" : "お気に入り登録"}
+                    aria-label={favorites.includes(current.id) ? t.gacha.favRemove : t.gacha.favAdd}
                     className="absolute -bottom-3 -right-3 z-20 text-yellow-400"
                   >
                     <Star size={24} fill={favorites.includes(current.id) ? "currentColor" : "none"} />

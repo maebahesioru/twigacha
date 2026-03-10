@@ -188,12 +188,12 @@ export default function CollectionPage() {
             <div key={card.id} className={`relative group slide-in-up transition-all duration-300 ${deletingId === card.id ? 'opacity-0 scale-75' : ''}`} style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}>
               <TcgCard card={card} size="lg" />
               <button onClick={(e) => { e.stopPropagation(); toggleFavorite(card.id); if (!favorites.includes(card.id)) playFavorite(); }}
-                aria-label={favorites.includes(card.id) ? "お気に入り解除" : "お気に入り登録"}
+                aria-label={favorites.includes(card.id) ? t.gacha.favRemove : t.gacha.favAdd}
                 className={`absolute -bottom-3 -right-3 z-20 text-yellow-400 transition-transform hover:scale-125 ${favorites.includes(card.id) ? 'pulse-glow rounded-full' : ''}`}>
                 <Star size={24} fill={favorites.includes(card.id) ? "currentColor" : "none"} />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); if (confirm(`${card.displayName} を削除しますか？`)) { playDelete(); setDeletingId(card.id); setTimeout(() => { removeCard(card.id); setDeletingId(null); }, 300); } }}
-                aria-label="カードを削除"
+              <button onClick={(e) => { e.stopPropagation(); if (confirm(t.collection.deleteConfirm(card.displayName))) { playDelete(); setDeletingId(card.id); setTimeout(() => { removeCard(card.id); setDeletingId(null); }, 300); } }}
+                aria-label={t.collection.deleteCard}
                 className="absolute -bottom-3 -left-3 z-20 bg-red-600 hover:bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Trash2 size={14} />
               </button>

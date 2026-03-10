@@ -49,7 +49,7 @@ export default function AchievementsPage() {
         </p>
 
         <div className="mb-4">
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 検索..." className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.achievements.searchPlaceholder} className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

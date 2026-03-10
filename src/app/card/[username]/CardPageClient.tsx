@@ -31,7 +31,7 @@ export default function CardPageClient({ username, initialCard }: { username: st
 
   if (!card) return (
     <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center justify-center gap-4 px-4">
-      <p className="text-gray-400">@{username} が見つかりませんでした</p>
+      <p className="text-gray-400">{t.cardSearch.notFound(username)}</p>
       <Link href="/" className="text-pink-400 hover:underline">{t.battle.cardPageBack}</Link>
     </div>
   );
@@ -89,7 +89,7 @@ export default function CardPageClient({ username, initialCard }: { username: st
         </div>
 
       <Link href="/" className="py-3 px-8 bg-pink-600 hover:bg-pink-500 rounded-xl font-bold transition">
-        TwiGachaで遊ぶ →
+        {t.cardSearch.playNow}
       </Link>
     </div>
   );

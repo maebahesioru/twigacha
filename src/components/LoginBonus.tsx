@@ -39,7 +39,7 @@ export default function LoginBonus() {
                 ${isToday ? "border-yellow-400 bg-yellow-500/20 scale-110" : isPast ? "border-gray-700 bg-gray-800 opacity-60" : "border-gray-700 bg-gray-800"}`}>
                 <span className="text-lg">{isPast ? "✅" : isToday ? "🎁" : "🔒"}</span>
                 <span className={`text-xs font-bold mt-1 ${isToday ? "text-yellow-300" : "text-gray-400"}`}>+{r}</span>
-                <span className="text-[10px] text-gray-500">{i + 1}日</span>
+                <span className="text-[10px] text-gray-500">{t.gacha.loginBonus.day(i + 1)}</span>
               </div>
             );
           })}

@@ -268,7 +268,7 @@ export function OnlineBattleView({ playerCard, onBack, t, onMatchResult, initial
       {selectedCard && <TcgCard card={selectedCard} size="md" />}
       <div className="flex gap-2">
         {(() => {
-          const text = `【TwiGacha対戦募集】コード: ${code}\n参加コードを入力して対戦しよう！\nhttps://twigacha.vercel.app/battle?code=${code} #TwiGacha`;
+          const text = t.battle.onlineShareText(code);
           return (<>
             <button onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank')}
               className="px-4 py-2 bg-sky-600 rounded-lg text-sm font-bold hover:bg-sky-500 transition">{t.battle.onlineRecruitBtn}</button>

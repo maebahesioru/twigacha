@@ -93,7 +93,7 @@ function BattlePageInner() {
     setPHpLive(playerCard.hp);
     setEHpLive(enemyCard.hp);
     await new Promise((r) => setTimeout(r, 300));
-    const { log: battleLog, hpSnaps, winner, pHp, eHp, turns, ko } = precomputedBattle ?? simulateBattle(playerCard, enemyCard);
+    const { log: battleLog, hpSnaps, winner, pHp, eHp, turns, ko } = precomputedBattle ?? simulateBattle(playerCard, enemyCard, useGameStore.getState().lang);
     setPrecomputedBattle(null);
     let prevPHp = playerCard.hp, prevEHp = enemyCard.hp;
     for (let i = 0; i < battleLog.length; i++) {
@@ -160,7 +160,7 @@ function BattlePageInner() {
       const card = applySkill(rawCard);
       setRaidCurrentCardHp(card.hp);
       await new Promise(r => setTimeout(r, battleSpeedRef.current));
-      setRaidLog(prev => [...prev, `━━ ${card.element}@${card.username} 出撃！ ━━`]);
+      setRaidLog(prev => [...prev, t.battle.raidSortie(card.element, card.username)]);
       let cardHp = card.hp;
       let turn = 1;
       while (cardHp > 0 && bossHp > 0 && turn <= 30) {
@@ -171,12 +171,12 @@ function BattlePageInner() {
         setRaidBossHpLive(bossHp);
         setRaidHpFlash(true); setTimeout(() => setRaidHpFlash(false), 300);
         playRaidHit();
-        setRaidLog(prev => [...prev, `Turn ${turn}: ${card.element}@${card.username} → ボスに ${d1} ダメージ${c1 ? " 💥" : ""}${t1 ? " 🔺" : ""}${w1 ? " 🔻" : ""}`]);
+        setRaidLog(prev => [...prev, `Turn ${turn}: ${t.battle.raid.bossDmg(card.username, d1, c1, t1, w1)}`]);
         if (bossHp <= 0) break;
         const { dmg: d2, isCrit: c2, isType: t2, isWeak: w2 } = calcDamage(boss.atk, card.def, boss.int, boss.luk, boss.element, card.element);
         cardHp = Math.max(0, cardHp - d2);
         setRaidCurrentCardHp(cardHp);
-        setRaidLog(prev => [...prev, `Turn ${turn}: 👹ボス → ${card.element}@${card.username} に ${d2} ダメージ${c2 ? " 💥" : ""}${t2 ? " 🔺" : ""}${w2 ? " 🔻" : ""}`]);
+        setRaidLog(prev => [...prev, `Turn ${turn}: ${t.battle.raid.bossAtk(card.username, d2, c2, t2, w2)}`]);
         turn++;
         totalTurns++;
       }
@@ -516,7 +516,7 @@ function BattlePageInner() {
       else break;
     }
     const streakBonusTriggered = win && curStreak > 0 && curStreak % 3 === 0;
-    const copyText = `${playerCard.displayName}が${enemyCard.displayName}に${win ? "勝利" : "敗北"}しました！\n\n自分: ${playerCard.displayName} ${win ? "Win!!" : "Lose..."}\n敵: ${enemyCard.displayName} ${win ? "Lose..." : "Win!!"}\n級: ${kyu}級\n${t.battle.result.win}/${t.battle.result.lose}: ${win ? t.battle.result.win : t.battle.result.lose}\n決着: ${result.ko ? t.battle.result.ko : t.battle.result.timeout}\nターン数: ${result.turns}\n残HP: ${playerCard.displayName} ${result.pHp}/${playerCard.hp} | ${enemyCard.displayName} ${result.eHp}/${enemyCard.hp}\nATK/DEF: ${playerCard.atk}/${playerCard.def} vs ${enemyCard.atk}/${enemyCard.def}\n\n#TwiGacha https://twigacha.vercel.app`;
+    const copyText = t.battle.result.copyText(playerCard.displayName, enemyCard.displayName, win, kyu, result.ko, result.turns, result.pHp, playerCard.hp, result.eHp, enemyCard.hp, playerCard.atk, playerCard.def, enemyCard.atk, enemyCard.def);
     const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(copyText)}&url=${encodeURIComponent('https://twigacha.vercel.app')}`;
 
     const HpBar = ({ current, max, isWin }: { current: number; max: number; isWin: boolean }) => (
@@ -566,13 +566,13 @@ function BattlePageInner() {
           <div className="flex justify-between"><span className="text-gray-400">{t.battle.result.decision}</span><span className="font-bold">{result.ko ? t.battle.result.ko : t.battle.result.timeout}</span></div>
           <div className="flex justify-between"><span className="text-gray-400">{t.battle.result.turns}</span><span className="font-bold">{result.turns}</span></div>
           <div className="flex justify-between"><span className="text-gray-400">{t.battle.result.kyu}</span><span className="font-bold">{enemyCard.rarity}</span></div>
-          <div className="flex justify-between text-xs"><span className="text-gray-400">残HP</span><span className="font-bold">{playerCard.displayName} {result.pHp}/{playerCard.hp} | {enemyCard.displayName} {result.eHp}/{enemyCard.hp}</span></div>
+          <div className="flex justify-between text-xs"><span className="text-gray-400">{t.battle.result.remainHp}</span><span className="font-bold">{playerCard.displayName} {result.pHp}/{playerCard.hp} | {enemyCard.displayName} {result.eHp}/{enemyCard.hp}</span></div>
         </div>
 
         {/* バトルログ */}
         {log.length > 0 && (
           <details className="w-full max-w-2xl bg-gray-800/80 rounded-2xl p-4">
-            <summary className="cursor-pointer text-sm text-gray-400 hover:text-white">バトルログ ({log.length}行)</summary>
+            <summary className="cursor-pointer text-sm text-gray-400 hover:text-white">{t.battle.result.battleLog(log.length)}</summary>
             <div className="mt-3 space-y-1 max-h-60 overflow-y-auto text-xs text-gray-300 font-mono">
               {log.map((l, i) => <div key={i}>{l}</div>)}
             </div>
@@ -761,7 +761,7 @@ function BattlePageInner() {
         <div className="flex items-center gap-3 text-sm justify-center mb-4">
           <span className="text-gray-400">{t.battle.speed}</span>
           <span className="text-xs text-gray-500">{ t.battle.slow}</span>
-          <input type="range" aria-label="バトル速度" min={100} max={1200} step={100} value={1300 - battleSpeed}
+          <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} value={1300 - battleSpeed}
             onChange={e => setBattleSpeed(1300 - Number(e.target.value))}
             className="w-32 accent-orange-500" />
           <span className="text-xs text-gray-500">{ t.battle.fast}</span>
@@ -772,7 +772,7 @@ function BattlePageInner() {
           {raidLog.map((l, i) => (
             <div key={i} className={`text-sm ${l.startsWith("━━") ? "text-orange-400 font-bold" : l.includes("defeated") ? "text-red-400" : "text-gray-300"}`}>{l}</div>
           ))}
-          {raidRunning && <div className="text-gray-500 animate-pulse text-sm">{t.battle.raid.battleTitle}中...</div>}
+          {raidRunning && <div className="text-gray-500 animate-pulse text-sm">{t.battle.raid.battling}</div>}
         </div>
       </div>
     );
@@ -783,7 +783,7 @@ function BattlePageInner() {
     const currentBossHp = raidBossHp;
     const currentBossMaxHp = raidBossMaxHp;
     const hpPct = currentBossMaxHp > 0 ? Math.max(0, currentBossHp / currentBossMaxHp * 100) : 0;
-    const copyText = `${raidResult.cleared ? "🏆 討伐成功！" : "⚔️ 挑戦終了"}\n\nボス: ${raidBossCard.displayName}\n与ダメージ: ${raidResult.totalDmg.toLocaleString()}\n残${t.battle.raid.bossHp}: ${currentBossHp.toLocaleString()}/${currentBossMaxHp.toLocaleString()}\nターン数: ${raidResult.turns}\n\n#TwiGacha https://twigacha.vercel.app`;
+    const copyText = t.battle.raid.copyText(raidResult.cleared, raidBossCard.displayName, raidResult.totalDmg, currentBossHp, currentBossMaxHp, raidResult.turns);
     const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(copyText)}`;
     return (
       <div className={`min-h-dvh bg-gray-950 text-white py-10 px-4 flex flex-col items-center gap-6 slide-in-up ${raidResult.cleared ? 'raid-clear-flash' : ''}`}>
@@ -804,7 +804,7 @@ function BattlePageInner() {
           <div className="flex justify-between"><span className="text-gray-400">{t.battle.raid.dmg}</span><span className="font-bold">{raidResult.totalDmg.toLocaleString()}</span></div>
           <div className="flex justify-between"><span className="text-gray-400">{t.battle.raid.totalTurns}</span><span className="font-bold">{raidResult.turns}</span></div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-400">残{t.battle.raid.bossHp}</span>
+            <span className="text-gray-400">{t.battle.raid.remainBossHp}</span>
             <span className="font-bold">{currentBossHp.toLocaleString()} / {currentBossMaxHp.toLocaleString()}</span>
           </div>
           <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
@@ -836,7 +836,7 @@ function BattlePageInner() {
                   <span className="text-gray-400">{h.date}</span>
                   <span className="text-gray-300 truncate mx-2">{h.bossName}</span>
                   <span className="text-gray-300">{h.totalDmg.toLocaleString()}dmg</span>
-                  <span className={`font-bold ml-2 ${h.cleared ? 'text-yellow-400' : 'text-orange-400'}`}>{h.cleared ? '討伐' : '挑戦'}</span>
+                  <span className={`font-bold ml-2 ${h.cleared ? 'text-yellow-400' : 'text-orange-400'}`}>{h.cleared ? t.battle.raid.defeatedLabel : t.battle.raid.challengeLabel}</span>
                 </div>
               ))}
             </div>
@@ -941,7 +941,7 @@ function BattlePageInner() {
       <div className="flex items-center gap-3 text-sm justify-center mb-4">
         <span className="text-gray-400">{t.battle.speed}</span>
         <span className="text-xs text-gray-500">{ t.battle.slow}</span>
-        <input type="range" aria-label="バトル速度" min={100} max={1200} step={100} value={1300 - battleSpeed}
+        <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} value={1300 - battleSpeed}
           onChange={e => setBattleSpeed(1300 - Number(e.target.value))}
           className="w-32 accent-pink-500" />
         <span className="text-xs text-gray-500">{ t.battle.fast}</span>

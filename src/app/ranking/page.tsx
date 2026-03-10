@@ -1,20 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { RARITY_STYLE } from "@/lib/card";
+import { useT } from "@/hooks/useT";
 
 type Row = { card_id: string; username: string; display_name: string; avatar: string; rarity: string; atk: number; element: string; wins: number; losses: number; streak: number; max_streak: number; ko_wins: number; ultimate_count: number };
 type Tab = "wins" | "rate" | "battles" | "streak" | "ko" | "ultimate" | "atk";
 type Filter = "all" | string;
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: "wins", label: "🏆 勝利数" },
-  { key: "rate", label: "📊 勝率" },
-  { key: "battles", label: "⚔️ 対戦数" },
-  { key: "streak", label: "🔥 最大連勝" },
-  { key: "ko", label: "💀 KO勝利" },
-  { key: "ultimate", label: "⚡ 必殺技" },
-  { key: "atk", label: "💪 ATK" },
-];
 
 const RARITIES = ["LR", "UR", "SSR", "SR", "R", "N", "C"];
 const ELEMENTS = ["🔥", "💧", "🌿", "⚡", "✨", "🌑", "🌙", "❄️"];
@@ -24,10 +15,21 @@ export default function RankingPage() {
   const [tab, setTab] = useState<Tab>("wins");
   const [rarityFilter, setRarityFilter] = useState<Filter>("all");
   const [elementFilter, setElementFilter] = useState<Filter>("all");
+  const t = useT();
 
   useEffect(() => {
     fetch("/api/ranking").then(r => r.json()).then(setRows).catch(() => {});
   }, []);
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: "wins", label: t.ranking.tabs.wins },
+    { key: "rate", label: t.ranking.tabs.rate },
+    { key: "battles", label: t.ranking.tabs.battles },
+    { key: "streak", label: t.ranking.tabs.streak },
+    { key: "ko", label: t.ranking.tabs.ko },
+    { key: "ultimate", label: t.ranking.tabs.ultimate },
+    { key: "atk", label: t.ranking.tabs.atk },
+  ];
 
   const filtered = rows
     .filter(r => rarityFilter === "all" || r.rarity === rarityFilter)
@@ -48,45 +50,39 @@ export default function RankingPage() {
   const MEDAL = ["🥇", "🥈", "🥉"];
 
   const getValue = (row: Row) => {
-    if (tab === "wins") return <span className="text-yellow-400 font-bold">{row.wins}勝</span>;
+    if (tab === "wins") return <span className="text-yellow-400 font-bold">{row.wins}W</span>;
     if (tab === "rate") { const r = Math.round(row.wins / (row.wins + row.losses) * 100); return <span className="text-green-400 font-bold">{r}%</span>; }
-    if (tab === "battles") return <span className="text-blue-400 font-bold">{row.wins + row.losses}戦</span>;
+    if (tab === "battles") return <span className="text-blue-400 font-bold">{row.wins + row.losses}</span>;
     if (tab === "streak") return <span className="text-orange-400 font-bold">🔥{row.max_streak}</span>;
     if (tab === "ko") return <span className="text-red-400 font-bold">💀{row.ko_wins}</span>;
     if (tab === "ultimate") return <span className="text-purple-400 font-bold">⚡{row.ultimate_count}</span>;
-    if (tab === "atk") return <span className="text-pink-400 font-bold">ATK {row.atk}</span>;
+    if (tab === "atk") return <span className="text-pink-400 font-bold">{row.atk}</span>;
   };
 
   return (
     <div className="min-h-dvh bg-gray-950 text-white py-10 px-4 flex flex-col items-center gap-4">
-      <h1 className="text-2xl font-black bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">🏆 カードランキング</h1>
-
-      {/* タブ */}
+      <h1 className="text-2xl font-black bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">{t.ranking.title}</h1>
       <div className="flex gap-2 flex-wrap justify-center">
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-3 py-1.5 rounded-xl font-bold text-xs transition ${tab === t.key ? "bg-yellow-500 text-black" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
-            {t.label}
+        {TABS.map(tb => (
+          <button key={tb.key} onClick={() => setTab(tb.key)}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs transition ${tab === tb.key ? "bg-yellow-500 text-black" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+            {tb.label}
           </button>
         ))}
       </div>
-
-      {/* フィルター */}
       <div className="flex gap-2 flex-wrap justify-center">
         <select value={rarityFilter} onChange={e => setRarityFilter(e.target.value)}
           className="bg-gray-800 text-white text-xs px-3 py-1.5 rounded-xl border border-gray-600">
-          <option value="all">全レアリティ</option>
+          <option value="all">{t.ranking.allRarity}</option>
           {RARITIES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <select value={elementFilter} onChange={e => setElementFilter(e.target.value)}
           className="bg-gray-800 text-white text-xs px-3 py-1.5 rounded-xl border border-gray-600">
-          <option value="all">全属性</option>
+          <option value="all">{t.ranking.allElement}</option>
           {ELEMENTS.map(e => <option key={e} value={e}>{e}</option>)}
         </select>
       </div>
-
-      {tab === "rate" && <p className="text-xs text-gray-500">※5戦以上のカードのみ表示</p>}
-
+      {tab === "rate" && <p className="text-xs text-gray-500">{t.ranking.rateNote}</p>}
       <div className="w-full max-w-lg space-y-2">
         {sorted.map((row, i) => {
           const rarityStyle = (RARITY_STYLE as Record<string, string>)[row.rarity] ?? "from-gray-400 to-gray-600";
@@ -101,12 +97,12 @@ export default function RankingPage() {
               <span className={`text-xs font-black px-2 py-0.5 rounded-full bg-gradient-to-r ${rarityStyle} text-white flex-shrink-0`}>{row.rarity}</span>
               <div className="text-right text-sm flex-shrink-0">
                 {getValue(row)}
-                <div className="text-xs text-gray-500">{row.wins}勝{row.losses}敗</div>
+                <div className="text-xs text-gray-500">{row.wins}W {row.losses}L</div>
               </div>
             </div>
           );
         })}
-        {sorted.length === 0 && <p className="text-gray-500 text-center py-10">まだデータがありません</p>}
+        {sorted.length === 0 && <p className="text-gray-500 text-center py-10">{t.ranking.noData}</p>}
       </div>
     </div>
   );

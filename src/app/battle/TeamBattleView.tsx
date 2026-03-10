@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import TcgCard from "@/components/TcgCard";
 import type { TwitterCard } from "@/types";
 import { KYU_CONFIG, generateEnemy, simulateBattle, type Kyu } from "@/lib/battle";
+import { useGameStore } from "@/store/useGameStore";
 import { sanitizeTeamCards } from "@/lib/card";
 import { TeamOnlineView } from "./OnlineViews";
 import type { Translations } from "@/lib/i18n";
@@ -106,7 +107,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
       const p = myTeam[i], e = enemyTeam[i];
       setCurrentRound({ p, e, pHp: p.hp, eHp: e.hp });
       await new Promise(r => setTimeout(r, battleSpeedRef.current * 0.5));
-      const { winner, pHp, eHp, turns, ko, hpSnaps, log: turnLog } = precomputed ? precomputed[i] : simulateBattle(p, e);
+      const { winner, pHp, eHp, turns, ko, hpSnaps, log: turnLog } = precomputed ? precomputed[i] : simulateBattle(p, e, useGameStore.getState().lang);
       logs.push(`━━ ${t.battle.team.round(i + 1)}: ${p.displayName} vs ${e.displayName} ━━`);
       setBattleLog([...logs]);
       for (let s = 0; s < hpSnaps.length; s++) {
@@ -119,7 +120,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
       if (win) wins++; else losses++;
       rounds.push({ p, e, win, pHp, eHp, turns, ko });
       setRoundResults([...rounds]);
-      logs.push(win ? `🏆 ${p.displayName} の勝利！` : `💀 ${e.displayName} の勝利！`);
+      logs.push(win ? t.battle.team.roundWin(p.displayName) : t.battle.team.roundLose(e.displayName));
       setBattleLog([...logs]);
       await new Promise(r => setTimeout(r, battleSpeedRef.current));
     }
@@ -215,7 +216,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
           <div>{t.battle.team.random}</div><div className="text-xs text-red-100 font-normal opacity-90 mt-1">{myTeam.length === 5 ? t.battle.team.teamBuilt(myTeam.map(c=>c.displayName).join(", ").slice(0,40)) : t.battle.team.teamNotBuilt}</div>
         </button>
         <button onClick={importAndBattle} className="py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl font-bold text-lg hover:opacity-90 transition text-left px-5">
-          <div>{t.battle.team.importEnemy}</div><div className="text-xs text-purple-100 font-normal opacity-90 mt-1">.wgteamファイルを読み込んで対戦</div>
+          <div>{t.battle.team.importEnemy}</div><div className="text-xs text-purple-100 font-normal opacity-90 mt-1">{t.battle.team.importEnemyDesc}</div>
         </button>
         <button onClick={() => setTeamView("online")} disabled={myTeam.length !== 5} className="py-4 bg-gradient-to-r from-violet-600 to-purple-600 rounded-2xl font-bold text-lg hover:opacity-90 disabled:opacity-40 transition text-left px-5">
           <div>{t.battle.online}</div><div className="text-xs text-violet-100 font-normal opacity-90 mt-1">{myTeam.length === 5 ? t.battle.onlineDesc : t.battle.team.teamNotBuilt5}</div>
@@ -304,7 +305,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
       <div className="w-full max-w-4xl">
         <div className="flex gap-2 justify-center mb-4 flex-wrap">
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.collection.search} className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-green-500" />
-          <select aria-label="並び替え" value={battleSort} onChange={e => setBattleSort(e.target.value as BattleSort)} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+          <select aria-label={t.battle.team.sortAriaLabel} value={battleSort} onChange={e => setBattleSort(e.target.value as BattleSort)} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
             {(t.battle.team.sortLabels as [string,string][]).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
@@ -325,7 +326,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
 
   if (teamView === "kyu") return (
     <div className="min-h-dvh bg-gray-950 text-white py-10 px-4 flex flex-col items-center gap-6 slide-in-up">
-      <Header title="⚔️ 級を選択" back={() => setTeamView("select")} backLabel={t.battle.back} />
+      <Header title={t.battle.team.kyuSelect} back={() => setTeamView("select")} backLabel={t.battle.back} />
       <div className="w-full max-w-2xl">
         <div className="flex gap-2 flex-wrap mb-6 justify-center">
           {myTeam.map((c, i) => (
@@ -340,11 +341,11 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
             <button key={k} onClick={() => setTeamKyu(k as Kyu | "MIX")} className={`px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base rounded-xl font-bold transition ${teamKyu === k ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{label}</button>
           ))}
         </div>
-        {teamKyu === "MIX" && <p className="text-center text-xs text-gray-500 mb-4">R/SR/SSR/UR/LR から各1枚</p>}
+        {teamKyu === "MIX" && <p className="text-center text-xs text-gray-500 mb-4">{t.battle.team.mixHint}</p>}
         <div className="flex items-center gap-3 text-sm justify-center mb-6">
           <span className="text-gray-400">{t.battle.speed}</span>
           <span className="text-xs text-gray-500">{t.battle.slow}</span>
-          <input type="range" aria-label="バトル速度" min={100} max={1200} step={100} value={1300 - battleSpeed} onChange={e => setBattleSpeed(1300 - Number(e.target.value))} className="w-32 accent-green-500" />
+          <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} value={1300 - battleSpeed} onChange={e => setBattleSpeed(1300 - Number(e.target.value))} className="w-32 accent-green-500" />
           <span className="text-xs text-gray-500">{t.battle.fast}</span>
         </div>
         <button onClick={startRandom} disabled={!teamKyu || running} className="w-full py-4 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl font-bold text-xl hover:opacity-90 disabled:opacity-40 transition">{t.battle.team.startRandom}</button>
@@ -401,7 +402,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
       <div className="flex items-center gap-3 text-sm justify-center">
         <span className="text-gray-400">{t.battle.speed}</span>
         <span className="text-xs text-gray-500">{t.battle.slow}</span>
-        <input type="range" aria-label="バトル速度" min={100} max={1200} step={100} value={1300 - battleSpeed} onChange={e => setBattleSpeed(1300 - Number(e.target.value))} className="w-32 accent-green-500" />
+        <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} value={1300 - battleSpeed} onChange={e => setBattleSpeed(1300 - Number(e.target.value))} className="w-32 accent-green-500" />
         <span className="text-xs text-gray-500">{t.battle.fast}</span>
       </div>
       <div className="max-w-2xl w-full bg-gray-900 rounded-xl p-4 space-y-1 max-h-64 overflow-y-auto overscroll-contain">
@@ -469,7 +470,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
         <button onClick={() => setTeamView("top")} className="ripple-btn py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition text-gray-300">{t.battle.result.menu}</button>
         {(() => {
           const resultLabel = battleResult.result === "win" ? t.battle.team.win : battleResult.result === "lose" ? t.battle.team.lose : t.battle.team.draw;
-          const copyText = `【団体戦${resultLabel}】${battleResult.wins}勝${battleResult.losses}敗${teamKyu ? ` (${teamKyu}級)` : ""}${onlineNames?.opponent ? ` vs ${onlineNames.opponent}` : ""}\n#TwiGacha https://twigacha.vercel.app`;
+          const copyText = t.battle.team.copyText(battleResult.wins, battleResult.losses, teamKyu ?? "", onlineNames?.opponent);
           return (<>
             <button onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(copyText)}`, '_blank')} className="ripple-btn py-3 bg-sky-600 rounded-xl font-bold hover:bg-sky-500 transition">{t.battle.result.shareBtn}</button>
             <button onClick={() => window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank')} className="ripple-btn py-3 bg-blue-500 rounded-xl font-bold hover:bg-blue-400 transition">Bluesky</button>

@@ -96,7 +96,39 @@ export function calcDamage(atk: number, def: number, int: number, luk: number, a
   return { dmg: isCrit ? Math.round(base * 1.5) : base, isCrit, isType: isStrong, isWeak };
 }
 
-export function simulateBattle(p: TwitterCard, e: TwitterCard) {
+const MSG = {
+  ja: {
+    dmg: "ダメージ", crit: "💥クリティカル！", typeGood: "🔺効果抜群！", typeWeak: "🔻いまひとつ…",
+    poison: (u: string, d: number) => `☠️ ${u} 毒ダメージ ${d}！`,
+    regen: (u: string, h: number) => `🌿 ${u} 再生 HP+${h}！`,
+    confused: (u: string) => `🌀 ${u} は混乱して攻撃できない！`,
+    frozen: (u: string) => `❄️ ${u} は凍結して動けない！`,
+    charge: (u: string) => `⚡ ${u} チャージ発動！`,
+    counter: (u: string, d: number) => `🔄 ${u} がカウンター！ ${d} ダメージ反射！`,
+    silence: (u: string) => `🔇 ${u} は沈黙中で必殺技が使えない！`,
+    win: (u: string) => `🏆 @${u} の勝利！`,
+    lose: (u: string) => `💀 @${u} の勝利！`,
+    ult: (text: string, label: string, dmg: number, heal: number) => `⚡必殺「${text}」${label}${dmg > 0 ? ` → ${dmg} ダメージ` : ""}${heal > 0 ? ` HP+${heal}` : ""}！`,
+    effects: { damage:"💥大ダメージ", shield:"🛡防御強化", heal:"❤️HP回復", confuse:"🌀混乱", boost:"✨全ステUP", crit:"🎯必中クリティカル", poison:"☠️毒", drain:"🩸吸収", pierce:"🗡貫通", multi:"🎲2回攻撃", freeze:"❄️凍結", debuff:"📉デバフ", regen:"🌿再生", counter:"🔄カウンター", nuke:"💣自爆", silence:"🔇沈黙", charge:"⚡チャージ", random:"🎰ランダム" },
+  },
+  en: {
+    dmg: "damage", crit: "💥Critical!", typeGood: "🔺Super effective!", typeWeak: "🔻Not very effective...",
+    poison: (u: string, d: number) => `☠️ ${u} poison damage ${d}!`,
+    regen: (u: string, h: number) => `🌿 ${u} regen HP+${h}!`,
+    confused: (u: string) => `🌀 ${u} is confused and can't attack!`,
+    frozen: (u: string) => `❄️ ${u} is frozen and can't move!`,
+    charge: (u: string) => `⚡ ${u} charge activated!`,
+    counter: (u: string, d: number) => `🔄 ${u} counters! ${d} damage reflected!`,
+    silence: (u: string) => `🔇 ${u} is silenced and can't use ultimates!`,
+    win: (u: string) => `🏆 @${u} wins!`,
+    lose: (u: string) => `💀 @${u} wins!`,
+    ult: (text: string, label: string, dmg: number, heal: number) => `⚡Ultimate「${text}」${label}${dmg > 0 ? ` → ${dmg} damage` : ""}${heal > 0 ? ` HP+${heal}` : ""}!`,
+    effects: { damage:"💥Big damage", shield:"🛡Defense up", heal:"❤️HP heal", confuse:"🌀Confuse", boost:"✨All stats UP", crit:"🎯Sure crit", poison:"☠️Poison", drain:"🩸Drain", pierce:"🗡Pierce", multi:"🎲Double hit", freeze:"❄️Freeze", debuff:"📉Debuff", regen:"🌿Regen", counter:"🔄Counter", nuke:"💣Nuke", silence:"🔇Silence", charge:"⚡Charge", random:"🎰Random" },
+  },
+};
+
+export function simulateBattle(p: TwitterCard, e: TwitterCard, lang: "ja" | "en" = "ja") {
+  const m = MSG[lang];
   // ultimatesがない場合はbio/usernameから生成
   const ensureUlts = (card: TwitterCard) => {
     if (card.ultimates?.length) return card;
@@ -117,10 +149,10 @@ export function simulateBattle(p: TwitterCard, e: TwitterCard) {
   let pFreeze = 0, eFreeze = 0, pRegen = 0, eRegen = 0, pCounter = false, eCounter = false;
   let pDebuff = false, eDebuff = false, pSilence = 0, eSilence = 0, pCharge = false, eCharge = false;
   const SIMPLE_EFFECTS = ["damage","shield","heal","confuse","boost","crit","multi","poison","drain","pierce","freeze","debuff","regen","counter","nuke","silence","charge"];
-  const EFFECT_LABEL: Record<string, string> = { damage:"💥大ダメージ", shield:"🛡防御強化", heal:"❤️HP回復", confuse:"🌀混乱", boost:"✨全ステUP", crit:"🎯必中クリティカル", poison:"☠️毒", drain:"🩸吸収", pierce:"🗡貫通", multi:"🎲2回攻撃", freeze:"❄️凍結", debuff:"📉デバフ", regen:"🌿再生", counter:"🔄カウンター", nuke:"💣自爆", silence:"🔇沈黙", charge:"⚡チャージ", random:"🎰ランダム" };
+  const EFFECT_LABEL = m.effects;
   const tryUltimate = (attacker: TwitterCard, isPlayer: boolean): { dmg: number; heal: number; text: string; effect: string } | null => {
     if (!attacker.ultimates?.length || Math.random() > 0.25) return null;
-    if (isPlayer ? pSilence > 0 : eSilence > 0) { if (isPlayer) pSilence--; else eSilence--; log.push(`Turn ${turn}: 🔇 ${attacker.username} は沈黙中で必殺技が使えない！`); return null; }
+    if (isPlayer ? pSilence > 0 : eSilence > 0) { if (isPlayer) pSilence--; else eSilence--; log.push(`Turn ${turn}: ${m.silence(attacker.username)}`); return null; }
     const u = attacker.ultimates[Math.floor(Math.random() * attacker.ultimates.length)];
     const mult = Math.min(1.5, 1 + u.score / 100000);
     let effect = u.effect ?? "damage";
@@ -157,15 +189,15 @@ export function simulateBattle(p: TwitterCard, e: TwitterCard) {
     const actualDmg = shielded ? Math.round(ult.dmg * 0.5) : ult.dmg;
     if (isAttackerPlayer) { eHp -= actualDmg; pHp += ult.heal; if (!pierce) eShield = false; }
     else { pHp -= actualDmg; eHp += ult.heal; if (!pierce) pShield = false; }
-    log.push(`Turn ${turn}: ⚡必殺「${ult.text}」${EFFECT_LABEL[ult.effect] ?? "💥"}${ult.dmg > 0 ? ` → ${actualDmg} ダメージ` : ""}${ult.heal > 0 ? ` HP+${ult.heal}` : ""}！`);
+    log.push(`Turn ${turn}: ${m.ult(ult.text, (EFFECT_LABEL as Record<string, string>)[ult.effect] ?? "💥", actualDmg, ult.heal)}`);
   };
   while (pHp > 0 && eHp > 0 && turn <= 50) {
     // 毒ティック
-    if (pPoison > 0) { const dmg = Math.round(p.atk * 0.15); pHp -= dmg; pPoison--; log.push(`Turn ${turn}: ☠️ ${p.username} 毒ダメージ ${dmg}！`); }
-    if (ePoison > 0) { const dmg = Math.round(e.atk * 0.15); eHp -= dmg; ePoison--; log.push(`Turn ${turn}: ☠️ ${e.username} 毒ダメージ ${dmg}！`); }
+    if (pPoison > 0) { const dmg = Math.round(p.atk * 0.15); pHp -= dmg; pPoison--; log.push(`Turn ${turn}: ${m.poison(p.username, dmg)}`); }
+    if (ePoison > 0) { const dmg = Math.round(e.atk * 0.15); eHp -= dmg; ePoison--; log.push(`Turn ${turn}: ${m.poison(e.username, dmg)}`); }
     // 再生ティック
-    if (pRegen > 0) { const h = Math.round(p.atk * 0.1); pHp += h; pRegen--; log.push(`Turn ${turn}: 🌿 ${p.username} 再生 HP+${h}！`); }
-    if (eRegen > 0) { const h = Math.round(e.atk * 0.1); eHp += h; eRegen--; log.push(`Turn ${turn}: 🌿 ${e.username} 再生 HP+${h}！`); }
+    if (pRegen > 0) { const h = Math.round(p.atk * 0.1); pHp += h; pRegen--; log.push(`Turn ${turn}: ${m.regen(p.username, h)}`); }
+    if (eRegen > 0) { const h = Math.round(e.atk * 0.1); eHp += h; eRegen--; log.push(`Turn ${turn}: ${m.regen(e.username, h)}`); }
     if (pHp <= 0 || eHp <= 0) break;
     const [first, second] = pFirst ? [p, e] : [e, p];
     const ult1 = tryUltimate(first, pFirst);
@@ -174,14 +206,14 @@ export function simulateBattle(p: TwitterCard, e: TwitterCard) {
     } else {
       const firstFrozen = pFirst ? pFreeze > 0 : eFreeze > 0;
       if (pFirst ? pConfused : eConfused) {
-        log.push(`Turn ${turn}: 🌀 ${first.username} は混乱して攻撃できない！`);
+        log.push(`Turn ${turn}: ${m.confused(first.username)}`);
         if (pFirst) pConfused = false; else eConfused = false;
       } else if (firstFrozen) {
-        log.push(`Turn ${turn}: ❄️ ${first.username} は凍結して動けない！`);
+        log.push(`Turn ${turn}: ${m.frozen(first.username)}`);
         if (pFirst) pFreeze--; else eFreeze--;
       } else {
         const atkMod = ((pFirst ? pDebuff : eDebuff) ? 0.8 : 1) * ((pFirst ? pCharge : eCharge) ? 2 : 1);
-        if (pFirst ? pCharge : eCharge) { if (pFirst) pCharge = false; else eCharge = false; log.push(`Turn ${turn}: ⚡ ${first.username} チャージ発動！`); }
+        if (pFirst ? pCharge : eCharge) { if (pFirst) pCharge = false; else eCharge = false; log.push(`Turn ${turn}: ${m.charge(first.username)}`); }
         const { dmg: dmg1, isCrit: crit1, isType: type1, isWeak: weak1 } = calcDamage(Math.round(first.atk * atkMod), second.def, first.int, first.luk, first.element, second.element);
         if (pFirst ? eDebuff : pDebuff) { if (pFirst) eDebuff = false; else pDebuff = false; }
         const shielded = pFirst ? eShield : pShield;
@@ -189,11 +221,11 @@ export function simulateBattle(p: TwitterCard, e: TwitterCard) {
         const countered = pFirst ? eCounter : pCounter;
         if (countered) {
           pHp -= dmg1; if (pFirst) eCounter = false; else pCounter = false;
-          log.push(`Turn ${turn}: 🔄 ${second.username} がカウンター！ ${dmg1} ダメージ反射！`);
+          log.push(`Turn ${turn}: ${m.counter(second.username, dmg1)}`);
         } else {
           const actualDmg1 = shielded ? Math.round(dmg1 * 0.5) : dmg1;
           if (pFirst) { eHp -= actualDmg1; eShield = false; } else { pHp -= actualDmg1; pShield = false; }
-          log.push(`Turn ${turn}: ${first.element}@${first.username} → ${actualDmg1} ダメージ${crit1 ? " 💥クリティカル！" : ""}${type1 ? " 🔺効果抜群！" : ""}${weak1 ? " 🔻いまひとつ…" : ""}`);
+          log.push(`Turn ${turn}: ${first.element}@${first.username} → ${actualDmg1} ${m.dmg}${crit1 ? " "+m.crit : ""}${type1 ? " "+m.typeGood : ""}${weak1 ? " "+m.typeWeak : ""}`);
         }
       }
     }
@@ -205,25 +237,25 @@ export function simulateBattle(p: TwitterCard, e: TwitterCard) {
     } else {
       const secondFrozen = pFirst ? eFreeze > 0 : pFreeze > 0;
       if (pFirst ? eConfused : pConfused) {
-        log.push(`Turn ${turn}: 🌀 ${second.username} は混乱して攻撃できない！`);
+        log.push(`Turn ${turn}: ${m.confused(second.username)}`);
         if (pFirst) eConfused = false; else pConfused = false;
       } else if (secondFrozen) {
-        log.push(`Turn ${turn}: ❄️ ${second.username} は凍結して動けない！`);
+        log.push(`Turn ${turn}: ${m.frozen(second.username)}`);
         if (pFirst) eFreeze--; else pFreeze--;
       } else {
         const atkMod = ((pFirst ? eDebuff : pDebuff) ? 0.8 : 1) * ((pFirst ? eCharge : pCharge) ? 2 : 1);
-        if (pFirst ? eCharge : pCharge) { if (pFirst) eCharge = false; else pCharge = false; log.push(`Turn ${turn}: ⚡ ${second.username} チャージ発動！`); }
+        if (pFirst ? eCharge : pCharge) { if (pFirst) eCharge = false; else pCharge = false; log.push(`Turn ${turn}: ${m.charge(second.username)}`); }
         const { dmg: dmg2, isCrit: crit2, isType: type2, isWeak: weak2 } = calcDamage(Math.round(second.atk * atkMod), first.def, second.int, second.luk, second.element, first.element);
         if (pFirst ? eDebuff : pDebuff) { if (pFirst) eDebuff = false; else pDebuff = false; }
         const shielded = pFirst ? pShield : eShield;
         const countered = pFirst ? pCounter : eCounter;
         if (countered) {
           eHp -= dmg2; if (pFirst) pCounter = false; else eCounter = false;
-          log.push(`Turn ${turn}: 🔄 ${first.username} がカウンター！ ${dmg2} ダメージ反射！`);
+          log.push(`Turn ${turn}: ${m.counter(first.username, dmg2)}`);
         } else {
           const actualDmg2 = shielded ? Math.round(dmg2 * 0.5) : dmg2;
           if (pFirst) { pHp -= actualDmg2; pShield = false; } else { eHp -= actualDmg2; eShield = false; }
-          log.push(`Turn ${turn}: ${second.element}@${second.username} → ${actualDmg2} ダメージ${crit2 ? " 💥クリティカル！" : ""}${type2 ? " 🔺効果抜群！" : ""}${weak2 ? " 🔻いまひとつ…" : ""}`);
+          log.push(`Turn ${turn}: ${second.element}@${second.username} → ${actualDmg2} ${m.dmg}${crit2 ? " "+m.crit : ""}${type2 ? " "+m.typeGood : ""}${weak2 ? " "+m.typeWeak : ""}`);
         }
       }
     }
@@ -232,7 +264,7 @@ export function simulateBattle(p: TwitterCard, e: TwitterCard) {
   }
   const winner = pHp > 0 ? "player" : "enemy";
   const ko = pHp <= 0 || eHp <= 0;
-  log.push(winner === "player" ? `🏆 @${p.username} の勝利！` : `💀 @${e.username} の勝利！`);
+  log.push(winner === "player" ? m.win(p.username) : m.lose(e.username));
   hpSnaps.push({ pHp: Math.max(0, pHp), eHp: Math.max(0, eHp) });
   return { log, hpSnaps, winner, pHp: Math.max(0, pHp), eHp: Math.max(0, eHp), turns: turn - 1, ko };
 }
