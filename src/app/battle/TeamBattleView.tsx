@@ -7,6 +7,7 @@ import { sanitizeTeamCards } from "@/lib/card";
 import { TeamOnlineView } from "./OnlineViews";
 import type { Translations } from "@/lib/i18n";
 import Confetti from "@/components/Confetti";
+import { playAttack, playVictory, playDefeat } from "@/lib/audio";
 
 type BattleSort = "pulledAt"|"rarity"|"name"|"id"|"atk"|"def"|"spd"|"hp"|"int"|"luk";
 type TeamView = "top"|"select"|"kyu"|"battle"|"result"|"online";
@@ -110,6 +111,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
       setBattleLog([...logs]);
       for (let s = 0; s < hpSnaps.length; s++) {
         setCurrentRound({ p, e, pHp: hpSnaps[s].pHp, eHp: hpSnaps[s].eHp });
+        if (s % 2 === 0) playAttack();
         if (turnLog[s] && s < hpSnaps.length - 1) { logs.push(turnLog[s]); setBattleLog([...logs]); }
         await new Promise(r => setTimeout(r, battleSpeedRef.current));
       }
@@ -124,6 +126,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
     setCurrentRound(null);
     const result: "win"|"lose"|"draw" = wins > losses ? "win" : wins < losses ? "lose" : "draw";
     setBattleResult({ wins, losses, result, enemyTeam });
+    result === "win" ? playVictory() : result === "lose" ? playDefeat() : null;
     addTeamBattleResult({ date: new Date().toLocaleDateString(), myTeam: myTeam.map(c => c.id), enemyTeam: enemyTeam.map(c => c.id), wins, losses, result, opponentName: onlineNames?.opponent, kyu: teamKyu ?? undefined });
     // 連勝ボーナス用に個人戦履歴にも記録（mode:'team'）
     if (!onlineNames) {

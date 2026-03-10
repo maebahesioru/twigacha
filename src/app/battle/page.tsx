@@ -19,7 +19,7 @@ function BattlePageInner() {
     raidDate, raidBossMaxHp, raidBossHp, raidBossCard, raidCleared, raidDeck, raidUsedCards,
     setRaidDeck, damageRaidBoss, addRaidUsedCards, initRaid, clearRaid, incrementRaidClearCount, raidHistory, addRaidHistory,
     teamBattleHistory, addTeamBattleResult, savedTeam, setSavedTeam, savedDecks, savedeck, deleteDeck,
-    battleSpeed, setBattleSpeed, battleSort, setBattleSort } = useGameStore();
+    battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard } = useGameStore();
   const battleSpeedRef = useRef(battleSpeed);
   useEffect(() => { battleSpeedRef.current = battleSpeed; }, [battleSpeed]);
   const t = useT();
@@ -399,7 +399,15 @@ function BattlePageInner() {
         <div className="flex flex-wrap gap-4 justify-center">
           {filtered.map(card => (
             <div key={card.id}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPlayerCard(card); }}
+              onClick={async (e) => {
+                e.preventDefault(); e.stopPropagation(); setPlayerCard(card);
+                if (!card.ultimates?.length) {
+                  try {
+                    const data = await fetch(`/api/gacha?username=${encodeURIComponent(card.username)}`).then(r => r.json());
+                    if (data.ultimates?.length) { const updated = { ...card, ultimates: data.ultimates }; updateCard(updated); setPlayerCard(updated); }
+                  } catch {}
+                }
+              }}
               className={`cursor-pointer transition hover:scale-105 rounded-xl ${playerCard?.id === card.id ? "ring-4 ring-pink-500 scale-105" : ""}`}
               style={{ pointerEvents: 'auto' }}
             >
@@ -454,18 +462,24 @@ function BattlePageInner() {
               const data = await res.json();
               const cards: TwitterCard[] = data.filter((c: { error?: string }) => c && !c.error) as TwitterCard[];
               const exact = cards.find(c => c.rarity === kyu);
+              const fetchUlts = async (username: string) => {
+                try { const d = await fetch(`/api/gacha?username=${encodeURIComponent(username)}`).then(r => r.json()); return d.ultimates ?? []; } catch { return []; }
+              };
               if (exact) {
-                setEnemyCard(boosted(exact));
+                const ults = await fetchUlts(exact.username);
+                setEnemyCard(boosted({ ...exact, ultimates: ults }));
               } else if (cards[0]) {
                 const { min, max } = KYU_CONFIG[kyu];
                 const target = Math.round((min + max) / 2) * 6;
                 const base = cards[0];
                 const total = base.atk + base.def + base.spd + base.hp + base.int + base.luk;
                 const r = target / Math.max(total, 1);
+                const ults = await fetchUlts(base.username);
                 setEnemyCard(boosted({ ...base, rarity: kyu,
                   atk: Math.round(base.atk * r), def: Math.round(base.def * r),
                   spd: Math.round(base.spd * r), hp: Math.round(base.hp * r),
                   int: Math.round(base.int * r), luk: Math.round(base.luk * r),
+                  ultimates: ults,
                 }));
               } else {
                 setEnemyCard(boosted(generateEnemy(kyu)));
@@ -548,6 +562,16 @@ function BattlePageInner() {
           <div className="flex justify-between"><span className="text-gray-400">{t.battle.result.kyu}</span><span className="font-bold">{enemyCard.rarity}</span></div>
           <div className="flex justify-between text-xs"><span className="text-gray-400">残HP</span><span className="font-bold">{playerCard.displayName} {result.pHp}/{playerCard.hp} | {enemyCard.displayName} {result.eHp}/{enemyCard.hp}</span></div>
         </div>
+
+        {/* バトルログ */}
+        {log.length > 0 && (
+          <details className="w-full max-w-2xl bg-gray-800/80 rounded-2xl p-4">
+            <summary className="cursor-pointer text-sm text-gray-400 hover:text-white">バトルログ ({log.length}行)</summary>
+            <div className="mt-3 space-y-1 max-h-60 overflow-y-auto text-xs text-gray-300 font-mono">
+              {log.map((l, i) => <div key={i}>{l}</div>)}
+            </div>
+          </details>
+        )}
 
         {/* アクションボタン */}
         <div className="grid grid-cols-3 gap-2 w-full max-w-2xl">

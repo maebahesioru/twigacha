@@ -70,7 +70,7 @@ export default function TcgCard({ card, size = "md", onClick, selected }: Props)
       </div>
 
       {/* bio */}
-      {card.bio && size !== "sm" && (
+      {size !== "sm" && card.bio && (
       <div className="text-center px-1">
           <p className="text-white/60 mt-0.5 leading-tight line-clamp-5 [display:-webkit-box] [-webkit-line-clamp:5] [-webkit-box-orient:vertical] overflow-hidden" style={{ fontSize: "0.65rem" }}>{card.bio}</p>
       </div>
@@ -96,11 +96,16 @@ export default function TcgCard({ card, size = "md", onClick, selected }: Props)
       </div>
 
       {/* スキル */}
-      {size !== "sm" && (() => { const sk = card.skill; return sk ? (
+      {(() => { const sk = card.skill; return sk ? (
         <div className="text-center px-1">
           <span className="text-yellow-300 font-bold" style={{ fontSize: "0.6rem" }}>⚡ {sk}：{PASSIVE_SKILLS[sk]?.desc}</span>
         </div>
       ) : null; })()}
+      {card.ultimates && card.ultimates.length > 0 && size !== "sm" && (
+        <div className="text-center px-1 mt-0.5">
+          <span className="text-red-300 font-bold" style={{ fontSize: "0.6rem" }}>💥 必殺×{card.ultimates.length}</span>
+        </div>
+      )}
 
       {/* UR ホログラム効果 */}
       {card.rarity === "UR" && (

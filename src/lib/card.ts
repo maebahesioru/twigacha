@@ -105,7 +105,7 @@ export function buildCard(user: {
   // LRとURの倍率差を縮小
   const rarityBonus = { C: 0.9, N: 1, R: 1.15, SR: 1.4, SSR: 1.7, UR: 2.0, LR: 2.4 }[rarity];
 
-  return {
+  const card: TwitterCard = {
     id: user.id, username: user.screen_name, displayName: user.name,
     avatar: user.avatar, bio: user.description,
     followers: user.followers, following: user.following,

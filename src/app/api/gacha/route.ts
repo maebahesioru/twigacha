@@ -37,6 +37,74 @@ async function fetchUsernames(): Promise<string[]> {
   return entries.map((e) => e.screenName).filter((n): n is string => !!n);
 }
 
+function getUltimateEffect(text: string, rank: number): string {
+  const emojiCount = (text.match(/\p{Emoji}/gu) ?? []).length;
+  if (text.includes("?") || text.includes("？")) return "confuse";
+  if (emojiCount >= 3) return "boost";
+  if (/[!！]{2,}/.test(text)) return "multi";
+  if (/死|終|消|闇|呪|hate|kill|die/i.test(text)) return "poison";
+  if (/love|好き|ありがとう|感謝|嬉し/i.test(text)) return "drain";
+  if (/冷|寒|氷|cold|ice|freeze/i.test(text)) return "freeze";
+  if (/弱|負|lose|weak|ダメ/i.test(text)) return "debuff";
+  if (/回復|治|recover|regen/i.test(text)) return "regen";
+  if (/反|返|counter|back|リプ/i.test(text)) return "counter";
+  if (/爆|bomb|nuke/i.test(text)) return "nuke";
+  if (/黙|静|silent|quiet/i.test(text)) return "silence";
+  if (/充|溜|charge|power|力/i.test(text)) return "charge";
+  if (/運|luck|ガチャ|random/i.test(text)) return "random";
+  if (/\d/.test(text)) return "crit";
+  if (text.length > 20) return "pierce";
+  if (rank === 0) return "damage";
+  if (rank === 1) return "shield";
+  return "heal";
+}
+
+async function fetchXUltimates(username: string): Promise<{ text: string; score: number; effect: string }[]> {
+  try {
+    const res = await fetch(`https://syndication.twitter.com/srv/timeline-profile/screen-name/${username}?count=20`, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+      next: { revalidate: 86400 },
+    });
+    const html = await res.text();
+    const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (!match) return [];
+    const data = JSON.parse(match[1]);
+    const entries: Record<string, unknown>[] = data?.props?.pageProps?.timeline?.entries ?? [];
+    return entries
+      .map((e) => {
+        const t = (e as { content?: { tweet?: Record<string, unknown> } }).content?.tweet ?? {};
+        const text = ((t.full_text as string) ?? "").replace(/https?:\/\/\S+/g, "").trim();
+        const score = Number(t.favorite_count ?? 0) + Number(t.retweet_count ?? 0) * 3 + Number(t.reply_count ?? 0) * 2;
+        return { text: text.slice(0, 30), score };
+      })
+      .filter(u => u.text.length > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((u, i) => ({ ...u, effect: getUltimateEffect(u.text, i) }));
+  } catch { return []; }
+}
+
+async function fetchBskyUltimates(handle: string): Promise<{ text: string; score: number; effect: string }[]> {
+  try {
+    const res = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&limit=20`, {
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.feed ?? [])
+      .map((item: Record<string, unknown>) => {
+        const post = (item as { post?: Record<string, unknown> }).post ?? {};
+        const text = ((post.record as Record<string, unknown>)?.text as string ?? "").replace(/https?:\/\/\S+/g, "").trim();
+        const score = Number(post.likeCount ?? 0) + Number(post.repostCount ?? 0) * 3 + Number(post.replyCount ?? 0) * 2;
+        return { text: text.slice(0, 30), score };
+      })
+      .filter((u: { text: string; score: number }) => u.text.length > 0)
+      .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+      .slice(0, 3)
+      .map((u: { text: string; score: number }, i: number) => ({ ...u, effect: getUltimateEffect(u.text, i) }));
+  } catch { return []; }
+}
+
 async function fetchFxUser(username: string) {
   const res = await fetch(`https://api.fxtwitter.com/${username}`, {
     next: { revalidate: 3600 },
@@ -93,7 +161,7 @@ async function fetchRandomBskyUsers(count: number) {
   if (!bulk.ok) return [];
   const bulkData = await bulk.json();
   return (bulkData.profiles ?? [])
-    .filter((u: Record<string, unknown>) => (u.followersCount ?? 0) >= 10)
+    .filter((u: Record<string, unknown>) => Number(u.followersCount ?? 0) >= 10)
     .slice(0, count);
 }
 
@@ -192,7 +260,8 @@ export async function GET(req: Request) {
       if (isBsky) {
         const u = await fetchBskyUser(username);
         if (!u) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
-        return NextResponse.json(buildBskyCard(u));
+        const bskyCard = buildBskyCard(u);
+        return NextResponse.json(bskyCard);
       }
       const user = await fetchFxUser(username);
       if (!user) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
