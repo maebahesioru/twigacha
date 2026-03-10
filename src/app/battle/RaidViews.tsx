@@ -10,7 +10,7 @@ type RaidHistory = { date: string; bossName: string; totalDmg: number; cleared: 
 interface RaidProps {
   t: T;
   view: string;
-  setView: (v: string) => void;
+  setView: (v: 'rarity' | 'team' | 'result' | 'battle' | 'online' | 'raid' | 'select' | 'menu' | 'raid-battle' | 'raid-result' | 'vs-id' | 'replay') => void;
   raidBossLoading: boolean;
   raidBossCard: TwitterCard | null;
   raidBossHp: number;
@@ -30,8 +30,8 @@ interface RaidProps {
   collection: TwitterCard[];
   battleSpeed: number;
   setBattleSpeed: (v: number) => void;
-  battleSort: string;
-  setBattleSort: (v: string) => void;
+  battleSort: 'atk' | 'def' | 'spd' | 'hp' | 'int' | 'luk' | 'rarity' | 'id' | 'name' | 'pulledAt';
+  setBattleSort: (v: 'atk' | 'def' | 'spd' | 'hp' | 'int' | 'luk' | 'rarity' | 'id' | 'name' | 'pulledAt') => void;
   search: string;
   setSearch: (v: string) => void;
   sortBattle: (cards: TwitterCard[]) => TwitterCard[];
@@ -102,7 +102,7 @@ export function RaidViews(p: RaidProps) {
           <div className="flex flex-wrap gap-2 justify-center items-center mb-2">
             <span className="text-gray-400 text-sm font-bold">{t.collection.sort}</span>
             {(Object.entries(t.collection.sortKeys) as [string, string][]).filter(([k]) => ["pulledAt","rarity","name","atk","def","spd","hp","int","luk"].includes(k)).map(([key, label]) => (
-              <button key={key} onClick={() => setBattleSort(key)}
+              <button key={key} onClick={() => setBattleSort(key as 'atk' | 'def' | 'spd' | 'hp' | 'int' | 'luk' | 'rarity' | 'id' | 'name' | 'pulledAt')}
                 className={`px-3 py-1 rounded-full text-sm font-bold transition ${battleSort === key ? "bg-orange-500 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>{label}</button>
             ))}
           </div>

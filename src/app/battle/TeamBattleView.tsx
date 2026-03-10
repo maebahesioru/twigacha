@@ -57,7 +57,7 @@ const Header = ({ title, back, backLabel }: { title: string; back: () => void; b
 export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleResult, addBattleResult, onBack, onReplay, onReplayAll, t, battleSpeed, setBattleSpeed, battleSort, setBattleSort, savedTeam, setSavedTeam, savedDecks, savedeck, deleteDeck }: {
   collection: TwitterCard[];
   teamBattleHistory: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: "win"|"lose"|"draw"; opponentName?: string; log?: string[]; rounds?: { p: import("@/types").TwitterCard; e: import("@/types").TwitterCard; hpSnaps: {pHp:number;eHp:number}[]; log: string[]; win: boolean }[] }[];
-  addTeamBattleResult: (r: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: "win"|"lose"|"draw"; opponentName?: string; kyu?: string }) => void;
+  addTeamBattleResult: (r: { date: string; myTeam: string[]; enemyTeam: string[]; wins: number; losses: number; result: "win"|"lose"|"draw"; opponentName?: string; kyu?: string; log?: string[]; rounds?: { p: TwitterCard; e: TwitterCard; hpSnaps: {pHp:number;eHp:number}[]; log: string[]; win: boolean }[] }) => void;
   addBattleResult: (r: { winner: 'player'|'enemy'; turns: number; kyu: string; playerCardId: string; pHp?: number; ko?: boolean; playerCardRarity?: string; mode?: string; log?: string[]; hpSnaps?: {pHp:number;eHp:number}[]; playerSnap?: import("@/types").TwitterCard; enemySnap?: import("@/types").TwitterCard }) => void;
   onBack: () => void;
   onReplay: (log: string[], cards?: { p: import("@/types").TwitterCard; e: import("@/types").TwitterCard; hpSnaps: {pHp:number;eHp:number}[] }) => void;

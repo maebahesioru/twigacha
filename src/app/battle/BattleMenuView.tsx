@@ -15,7 +15,7 @@ interface Props {
   raidHistory: RaidHistoryEntry[];
   raidBossCard: TwitterCard | null;
   raidBossMaxHp: number;
-  setView: (v: string) => void;
+  setView: (v: 'rarity' | 'team' | 'result' | 'battle' | 'online' | 'raid' | 'select' | 'menu' | 'raid-battle' | 'raid-result' | 'vs-id' | 'replay') => void;
   setSelectFor: (v: 'battle'|'online') => void;
   setPlayerCard: (c: TwitterCard | null) => void;
   setEnemyCard: (c: TwitterCard | null) => void;

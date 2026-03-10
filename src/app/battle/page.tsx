@@ -24,7 +24,8 @@ function BattlePageInner() {
     battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard, markRaidMission } = useGameStore();
   const [localSpeed, setLocalSpeed] = useState(battleSpeed);
   const battleSpeedRef = useRef(localSpeed);
-  useEffect(() => { battleSpeedRef.current = localSpeed; }, [localSpeed]);
+  useEffect(() => { battleSpeedRef.current = localSpeed; setBattleSpeed(localSpeed); }, [localSpeed]);
+  useEffect(() => { battleSpeedRef.current = battleSpeed; }, [battleSpeed]);
   const t = useT();
   const searchParams = useSearchParams();
   const initialCode = searchParams.get('code') ?? '';
@@ -57,7 +58,7 @@ function BattlePageInner() {
   const [repeatCount, setRepeatCount] = useState(0);
   const [replayIdx, setReplayIdx] = useState(0);
   const [replayCards, setReplayCards] = useState<{p: import("@/types").TwitterCard; e: import("@/types").TwitterCard; hpSnaps: {pHp:number;eHp:number}[]} | null>(null);
-  const [replayFrom, setReplayFrom] = useState<string>('menu');
+  const [replayFrom, setReplayFrom] = useState<'rarity' | 'team' | 'result' | 'battle' | 'online' | 'raid' | 'select' | 'menu' | 'raid-battle' | 'raid-result' | 'vs-id' | 'replay'>('menu');
   const [replayRaidSnaps, setReplayRaidSnaps] = useState<{ cardIdx: number; card: import("@/types").TwitterCard; cardHp: number; bossHp: number }[] | null>(null);
   const [replayBossCard, setReplayBossCard] = useState<import("@/types").TwitterCard | null>(null);
   const [replayBossMaxHp, setReplayBossMaxHp] = useState(0);
@@ -293,6 +294,7 @@ function BattlePageInner() {
     setRaidLog([]);
     setRaidResult(null);
     setRaidTotalDmg(0);
+    const raidLogs: string[] = [];
 
     const deck = raidDeck.map(id => collection.find(c => c.id === id)).filter(Boolean) as TwitterCard[];
     let bossHp = raidBossHp > 0 ? raidBossHp : raidBossCard.hp;
@@ -309,7 +311,7 @@ function BattlePageInner() {
       const card = applySkill(rawCard);
       setRaidCurrentCardHp(card.hp);
       await new Promise(r => setTimeout(r, battleSpeedRef.current));
-      setRaidLog(prev => [...prev, t.battle.raidSortie(card.element, card.username)]);
+      raidLogs.push(t.battle.raidSortie(card.element, card.username)); setRaidLog(prev => [...prev, t.battle.raidSortie(card.element, card.username)]);
       let cardHp = card.hp;
       let turn = 1;
       while (cardHp > 0 && bossHp > 0 && turn <= 30) {
@@ -321,17 +323,17 @@ function BattlePageInner() {
         setRaidHpFlash(true); setTimeout(() => setRaidHpFlash(false), 300);
         playRaidHit();
         raidSnaps.push({ cardIdx: ci, card: rawCard, cardHp, bossHp });
-        setRaidLog(prev => [...prev, `Turn ${turn}: ${t.battle.raid.bossDmg(card.username, d1, c1, t1, w1)}`]);
+        raidLogs.push(`Turn ${turn}: ${t.battle.raid.bossDmg(card.username, d1, c1, t1, w1)}`); setRaidLog(prev => [...prev, `Turn ${turn}: ${t.battle.raid.bossDmg(card.username, d1, c1, t1, w1)}`]);
         if (bossHp <= 0) break;
         const { dmg: d2, isCrit: c2, isType: t2, isWeak: w2 } = calcDamage(boss.atk, card.def, boss.int, boss.luk, boss.element, card.element);
         cardHp = Math.max(0, cardHp - d2);
         setRaidCurrentCardHp(cardHp);
         raidSnaps.push({ cardIdx: ci, card: rawCard, cardHp, bossHp });
-        setRaidLog(prev => [...prev, `Turn ${turn}: ${t.battle.raid.bossAtk(card.username, d2, c2, t2, w2)}`]);
+        raidLogs.push(`Turn ${turn}: ${t.battle.raid.bossAtk(card.username, d2, c2, t2, w2)}`); setRaidLog(prev => [...prev, `Turn ${turn}: ${t.battle.raid.bossAtk(card.username, d2, c2, t2, w2)}`]);
         turn++;
         totalTurns++;
       }
-      if (cardHp <= 0) setRaidLog(prev => [...prev, `💀 @${card.username} defeated...`]);
+      if (cardHp <= 0) raidLogs.push(`💀 @${card.username} defeated...`); setRaidLog(prev => [...prev, `💀 @${card.username} defeated...`]);
     }
 
     setRaidTotalDmg(totalDmg);
@@ -339,7 +341,7 @@ function BattlePageInner() {
     addRaidUsedCards(deck.map(c => c.id));
     const cleared = bossHp <= 0;
     if (cleared) { clearRaid(); incrementRaidClearCount(); }
-    addRaidHistory({ date: new Date().toLocaleDateString(), bossName: raidBossCard.displayName, totalDmg, cleared, log: raidLog, snaps: raidSnaps });
+    addRaidHistory({ date: new Date().toLocaleDateString(), bossName: raidBossCard.displayName, totalDmg, cleared, log: raidLogs, snaps: raidSnaps });
     markRaidMission();
     // カードランキングに各カードの結果を送信
     deck.forEach(card => {
@@ -454,7 +456,7 @@ function BattlePageInner() {
     // レイドsnapsあり → バトル画面再現
     if (!replayCards && replayRaidSnaps && replayBossCard) {
       const done = replayIdx >= replayRaidSnaps.length;
-      const replayLog = log.slice(0, Math.ceil(replayIdx * log.length / replayRaidSnaps.length));
+      const replayLog = done ? log : log.slice(0, Math.max(1, Math.floor(replayIdx * log.length / replayRaidSnaps.length)));
       return (
         <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center px-4 py-6 gap-4 slide-in-up">
           <div className="flex items-center justify-between w-full max-w-2xl">
