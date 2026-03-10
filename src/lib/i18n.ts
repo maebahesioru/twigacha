@@ -81,6 +81,7 @@ const ja = {
     },
     deleteConfirm: (name: string) => `${name} を削除しますか？`,
     deleteCard: "カードを削除",
+    backup: { pwPrompt: "バックアップ暗号化パスフレーズを入力してください（8文字以上）", pwConfirm: "確認のため、同じパスフレーズをもう一度入力してください", pwShort: "パスフレーズは8文字以上にしてください", pwMismatch: "パスフレーズが一致しません", pwDecrypt: "復号パスフレーズを入力", pwWrong: "パスフレーズが違います" },
   },
   battle: {
     title: "⚔️ バトル",
@@ -453,6 +454,7 @@ const en: typeof ja = {
     },
     deleteConfirm: (name: string) => `Delete ${name}?`,
     deleteCard: "Delete card",
+    backup: { pwPrompt: "Enter encryption passphrase (8+ characters)", pwConfirm: "Enter the same passphrase again to confirm", pwShort: "Passphrase must be at least 8 characters", pwMismatch: "Passphrases do not match", pwDecrypt: "Enter decryption passphrase", pwWrong: "Wrong passphrase" },
   },
   battle: {
     title: "⚔️ Battle",

@@ -54,14 +54,32 @@ export default function CollectionPage() {
   };
 
   const handleExport = async () => {
-    const raw = JSON.parse(localStorage.getItem("twigacha-collection") ?? "{}");
-    const data = raw?.state?.collection ?? raw ?? [];
-    const str = JSON.stringify(data);
-    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2,"0")).join("");
-    const blob = new Blob([JSON.stringify({ data, checksum: hash })], { type: "application/json" });
+    const data = {
+      collection: localStorage.getItem("twigacha-collection"),
+      uid: localStorage.getItem("twigacha-uid"),
+      name: localStorage.getItem("twigacha-name"),
+    };
+    const plain = new TextEncoder().encode(JSON.stringify(data));
+    let blob: Blob;
+    const pw = prompt(t.collection.backup.pwPrompt);
+    if (!pw) { if (pw !== null) alert(t.collection.backup.pwShort); return; }
+    if (pw.length < 8) { alert(t.collection.backup.pwShort); return; }
+      const pw2 = prompt(t.collection.backup.pwConfirm);
+      if (pw2 === null) return;
+      if (pw !== pw2) { alert(t.collection.backup.pwMismatch); return; }
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+        await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]),
+        { name: "AES-GCM", length: 256 }, false, ["encrypt"]
+      );
+      const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plain);
+      const b64 = (buf: ArrayBuffer) => { const bytes = new Uint8Array(buf); let s = ""; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); };
+      blob = new Blob([JSON.stringify({ encrypted: true, salt: b64(salt.buffer), iv: b64(iv.buffer), data: b64(cipher) })], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `twigacha-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.href = url; a.download = `twigacha-backup-${new Date().toISOString().slice(0,10)}.wgbak`;
     a.click(); URL.revokeObjectURL(url);
   };
 
@@ -72,17 +90,46 @@ export default function CollectionPage() {
       try {
         const text = ev.target?.result as string;
         const parsed = JSON.parse(text);
-        const arr = parsed.data ?? parsed;
-        if (!Array.isArray(arr)) throw new Error();
-        if (parsed.checksum) {
-          const str = JSON.stringify(parsed.data);
-          const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2,"0")).join("");
-          if (hash !== parsed.checksum) { alert(t.battle.fileModified); return; }
+        let arr: unknown[];
+        if (parsed.encrypted) {
+          const pw = prompt(t.collection.backup.pwDecrypt);
+          if (!pw) return;
+          const b64d = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+          const key = await crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: b64d(parsed.salt), iterations: 100000, hash: "SHA-256" },
+            await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]),
+            { name: "AES-GCM", length: 256 }, false, ["decrypt"]
+          );
+          let plain: ArrayBuffer;
+          try { plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64d(parsed.iv) }, key, b64d(parsed.data)); }
+          catch { alert(t.collection.backup.pwWrong); return; }
+          arr = JSON.parse(new TextDecoder().decode(plain));
+        } else {
+          // 暗号化なし：新形式（全キー）または旧形式
+          arr = parsed.data ?? parsed;
+          if (parsed.checksum) {
+            const str = JSON.stringify(parsed.data);
+            const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2,"0")).join("");
+            if (hash !== parsed.checksum) { alert(t.battle.fileModified); return; }
+          }
         }
-        const sanitized = sanitizeCollection(arr);
-        const raw = JSON.parse(localStorage.getItem("twigacha-collection") ?? "{}");
-        raw.state = { ...(raw.state ?? {}), collection: sanitized };
-        localStorage.setItem("twigacha-collection", JSON.stringify(raw));
+        // 新形式：{ collection, uid, name }
+        if (arr && typeof arr === "object" && !Array.isArray(arr) && "collection" in (arr as object)) {
+          const d = arr as { collection?: string; uid?: string; name?: string };
+          if (d.collection) localStorage.setItem("twigacha-collection", d.collection);
+          if (d.uid) localStorage.setItem("twigacha-uid", d.uid);
+          if (d.name) localStorage.setItem("twigacha-name", d.name);
+        } else if (arr && typeof arr === "object" && !Array.isArray(arr) && "state" in (arr as object)) {
+          // 旧全データ形式
+          localStorage.setItem("twigacha-collection", JSON.stringify(arr));
+        } else {
+          // 旧コレクション配列形式
+          if (!Array.isArray(arr)) throw new Error();
+          const sanitized = sanitizeCollection(arr as unknown[]);
+          const raw = JSON.parse(localStorage.getItem("twigacha-collection") ?? "{}");
+          raw.state = { ...(raw.state ?? {}), collection: sanitized };
+          localStorage.setItem("twigacha-collection", JSON.stringify(raw));
+        }
         window.location.reload();
       } catch { alert("Invalid file"); }
     };
@@ -147,7 +194,7 @@ export default function CollectionPage() {
           </button>
           <label className="flex-1 py-2 bg-green-700 hover:bg-green-600 rounded-lg text-sm font-bold transition cursor-pointer text-center">
             {t.battle.backupImport}
-            <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+            <input type="file" accept=".wgbak,.json" onChange={handleImport} className="hidden" />
           </label>
         </div>
         <p className="text-xs text-gray-600 mt-2">{t.battle.backupWarning}</p>

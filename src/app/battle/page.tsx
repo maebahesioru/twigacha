@@ -12,7 +12,7 @@ import { OnlineBattleView } from "./OnlineViews";
 import { TeamBattleView } from "./TeamBattleView";
 import { RaidViews } from "./RaidViews";
 import { BattleMenuView } from "./BattleMenuView";
-import { playAttack, playVictory, playDefeat, playRaidHit } from "@/lib/audio";
+import { playAttack, playVictory, playDefeat, playRaidHit, playHit } from "@/lib/audio";
 import Confetti from "@/components/Confetti";
 
 function BattlePageInner() {
@@ -327,6 +327,7 @@ function BattlePageInner() {
         const { dmg: d2, isCrit: c2, isType: t2, isWeak: w2 } = calcDamage(boss.atk, card.def, boss.int, boss.luk, boss.element, card.element);
         cardHp = Math.max(0, cardHp - d2);
         setRaidCurrentCardHp(cardHp);
+        playHit();
         raidSnaps.push({ cardIdx: ci, card: rawCard, cardHp, bossHp });
         raidLogs.push(`Turn ${turn}: ${t.battle.raid.bossAtk(card.username, d2, c2, t2, w2)}`); setRaidLog(prev => [...prev, `Turn ${turn}: ${t.battle.raid.bossAtk(card.username, d2, c2, t2, w2)}`]);
         turn++;
