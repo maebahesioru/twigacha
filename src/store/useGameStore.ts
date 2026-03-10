@@ -6,6 +6,7 @@ import { getSkill } from "@/lib/skill";
 
 interface GameStore {
   collection: TwitterCard[];
+  playerId: string;
   addCard: (card: TwitterCard) => void;
   removeCard: (id: string) => void;
   updateCard: (card: TwitterCard) => void;
@@ -89,6 +90,7 @@ export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
       collection: [],
+      playerId: Math.random().toString(36).slice(2),
       addCard: (card) =>
         set((s) => ({
           collection: [get().hasCard(card.id) ? { ...card, id: `${card.id}_${Date.now()}` } : card, ...s.collection],

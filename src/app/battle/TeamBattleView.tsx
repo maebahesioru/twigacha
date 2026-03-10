@@ -128,6 +128,10 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
     setBattleResult({ wins, losses, result, enemyTeam });
     result === "win" ? playVictory() : result === "lose" ? playDefeat() : null;
     addTeamBattleResult({ date: new Date().toLocaleDateString(), myTeam: myTeam.map(c => c.id), enemyTeam: enemyTeam.map(c => c.id), wins, losses, result, opponentName: onlineNames?.opponent, kyu: teamKyu ?? undefined });
+    // カードランキングに各カードの結果を送信
+    rounds.forEach(r => {
+      fetch('/api/ranking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_id: r.p.id, username: r.p.username, display_name: r.p.displayName, avatar: r.p.avatar, rarity: r.p.rarity, atk: r.p.atk, element: r.p.element, won: r.win, ko_win: r.win && r.ko, ultimate_count: 0 }) }).catch(() => {});
+    });
     // 連勝ボーナス用に個人戦履歴にも記録（mode:'team'）
     if (!onlineNames) {
       const winner = result === 'win' ? 'player' : result === 'lose' ? 'enemy' : null;
