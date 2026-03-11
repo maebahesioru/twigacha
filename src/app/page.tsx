@@ -217,11 +217,15 @@ export default function GachaPage() {
     if (remaining < 5) return;
     setLoading(true); setError(""); setCards([]); setRevealed(0);
     try {
-      const res = await fetch(`/api/gacha?count=5&query=${encodeURIComponent(query)}`);
-      const data = await res.json();
-      if (!Array.isArray(data) || !data.length) { setError(t.gacha.noCards); return; }
-      const valid = data.filter((c): c is TwitterCard => c && !c.error);
-      if (!valid.length) { setError(t.gacha.noCards); return; }
+      const [pickupRes, randomRes] = await Promise.all([
+        fetch(`/api/gacha?count=5&query=${encodeURIComponent(query)}`),
+        fetch(`/api/gacha?count=5`),
+      ]);
+      const [pickupData, randomData] = await Promise.all([pickupRes.json(), randomRes.json()]);
+      const pickup = Array.isArray(pickupData) ? pickupData.filter((c): c is TwitterCard => c && !c.error) : [];
+      const random = Array.isArray(randomData) ? randomData.filter((c): c is TwitterCard => c && !c.error) : [];
+      if (!pickup.length) { setError(t.gacha.noCards); return; }
+      const valid = pickup.map((c, i) => Math.random() < 0.5 ? c : (random[i] ?? c));
       valid.forEach(addCard); valid.forEach(c => incrementCardPullCount(c.id));
       setLastPackCards(valid);
       openPack(); openPack(); openPack(); openPack(); openPack();
