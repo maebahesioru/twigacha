@@ -3,6 +3,15 @@ import { getSkill } from "@/lib/skill";
 
 const ELEMENTS: Element[] = ["🔥", "💧", "🌿", "⚡", "✨", "🌑", "🌙", "❄️"];
 
+export function isBirthday(joined: string): boolean {
+  if (!joined) return false;
+  const d = new Date(joined);
+  const today = new Date();
+  return d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+}
+
+
+
 const STAT_MAX = 9999;
 const s = (v: unknown) => Math.min(Math.max(0, Math.round(Number(v) || 0)), STAT_MAX);
 export function sanitizeCard(c: TwitterCard): TwitterCard {

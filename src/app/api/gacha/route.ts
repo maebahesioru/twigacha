@@ -208,7 +208,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export async function GET(req: Request) {
-  if (!rateLimit(getIp(req), 30, 60_000))
+  if (!rateLimit(getIp(req), 60, 60_000))
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   const { searchParams } = new URL(req.url);

@@ -7,6 +7,7 @@ import { useGameStore } from "@/store/useGameStore";
 import { useT } from "@/hooks/useT";
 import type { TwitterCard } from "@/types";
 import { KYU_CONFIG, generateEnemy, simulateBattle, calcDamage, applySkill, getTodayWeather, type Kyu } from "@/lib/battle";
+import { isBirthday } from "@/lib/card";
 import { VsIdScreen } from "./VsIdScreen";
 import { OnlineBattleView } from "./OnlineViews";
 import { TeamBattleView } from "./TeamBattleView";
@@ -20,7 +21,7 @@ function BattlePageInner() {
     raidDate, raidBossMaxHp, raidBossHp, raidBossCard, raidCleared, raidDeck, raidUsedCards,
     setRaidDeck, damageRaidBoss, addRaidUsedCards, initRaid, clearRaid, incrementRaidClearCount, raidHistory, addRaidHistory,
     teamBattleHistory, addTeamBattleResult, savedTeam, setSavedTeam, savedDecks, savedeck, deleteDeck,
-    battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard, markRaidMission } = useGameStore();
+    battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard, markRaidMission, claimBirthdayBonus } = useGameStore();
   const [localSpeed, setLocalSpeed] = useState(battleSpeed);
   const battleSpeedRef = useRef(localSpeed);
   useEffect(() => { battleSpeedRef.current = localSpeed; setBattleSpeed(localSpeed); }, [localSpeed]);
@@ -104,11 +105,11 @@ function BattlePageInner() {
       const card: TwitterCard = Array.isArray(data) ? data[0] : data;
       if (!card || (card as unknown as { error?: string }).error) return;
       // {t.battle.raid.bossHp}はカードの10倍
-      const maxHp = card.hp * 8;
+      const maxHp = card.hp * 20;
       const boss: TwitterCard = { ...card,
         hp: maxHp,
-        atk: Math.round(card.atk * 2.0),
-        def: Math.round(card.def * 2.0),
+        atk: Math.round(card.atk * 3.0),
+        def: Math.round(card.def * 3.0),
         spd: Math.round(card.spd * 1.5),
         int: Math.round(card.int * 2.0),
         luk: Math.round(card.luk * 1.5),
@@ -165,10 +166,12 @@ function BattlePageInner() {
     if (!playerCard || !enemyCard) return;
     setBattling(true);
     setResult(null);
-    setPHpLive(playerCard.hp);
+    const isBday = isBirthday(playerCard.joined);
+    const birthdayCard = isBday ? { ...playerCard, atk: Math.round(playerCard.atk * 1.1), def: Math.round(playerCard.def * 1.1), spd: Math.round(playerCard.spd * 1.1), hp: Math.round(playerCard.hp * 1.1), int: Math.round(playerCard.int * 1.1), luk: Math.round(playerCard.luk * 1.1) } : playerCard;
+    setPHpLive(birthdayCard.hp);
     setEHpLive(enemyCard.hp);
     await new Promise((r) => setTimeout(r, 300));
-    const { log: battleLog, hpSnaps, winner, pHp, eHp, turns, ko } = precomputedBattle ?? simulateBattle(playerCard, enemyCard, useGameStore.getState().lang);
+    const { log: battleLog, hpSnaps, winner, pHp, eHp, turns, ko } = precomputedBattle ?? simulateBattle(birthdayCard, enemyCard, useGameStore.getState().lang, isBday ? 0.5 : 0.25);
     setPrecomputedBattle(null);
     let prevPHp = playerCard.hp, prevEHp = enemyCard.hp;
     for (let i = 0; i < battleLog.length; i++) {
@@ -196,6 +199,14 @@ function BattlePageInner() {
     setBattling(false);
     markBattle();
     addBattleResult({ winner: winner as 'player' | 'enemy', turns, kyu, playerCardId: playerCard.id, opponentName: onlineNames?.opponent, pHp, ko, playerCardRarity: playerCard.rarity, enemyCardRarity: enemyCard.rarity, mode: selectFor === 'battle' && !onlineNames ? 'random' : 'other', log: battleLog, hpSnaps, playerSnap: playerCard, enemySnap: enemyCard });
+    if (winner === 'player' && isBday) {
+      const given = claimBirthdayBonus();
+      if (given) {
+        const store = useGameStore.getState();
+        const count = store.birthdayBonusDate === new Date().toDateString() ? store.birthdayBonusCount : 1;
+        setTimeout(() => alert(t.gacha.birthdayBonus(count, 5)), 1500);
+      }
+    }
     const ultimateCount = battleLog.filter(l => l.includes("⚡必殺") && l.includes(`@${playerCard.username}`) === false && winner === 'player' ? false : l.includes("⚡必殺")).length;
     fetch('/api/ranking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_id: playerCard.id, username: playerCard.username, display_name: playerCard.displayName, avatar: playerCard.avatar, rarity: playerCard.rarity, atk: playerCard.atk, element: playerCard.element, won: winner === 'player', ko_win: winner === 'player' && ko, ultimate_count: ultimateCount }) }).catch(() => {});
     winner === 'player' ? playVictory() : playDefeat();

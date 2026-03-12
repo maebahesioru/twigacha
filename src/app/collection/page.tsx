@@ -6,7 +6,7 @@ import TcgCard from "@/components/TcgCard";
 import { useGameStore } from "@/store/useGameStore";
 import { useT } from "@/hooks/useT";
 import type { Rarity, TwitterCard } from "@/types";
-import { sanitizeCollection } from "@/lib/card";
+import { sanitizeCollection, isBirthday } from "@/lib/card";
 import { playFavorite, playDelete } from "@/lib/audio";
 
 type SortKey = "rarity" | "name" | "id" | "atk" | "def" | "spd" | "hp" | "int" | "luk" | "pulledAt" | "enhanceable";
@@ -31,9 +31,30 @@ function sortCards(cards: TwitterCard[], key: SortKey, all: TwitterCard[] = []):
 export default function CollectionPage() {
   const { collection, removeCard, updateCard, totalPackCount, toggleFavorite, favorites } = useGameStore();
   const t = useT();
+
+  // joinedが空のカードをバックグラウンドで更新（最大10枚）
+  useEffect(() => {
+    const targets = collection.filter(c => !c.joined).slice(0, 10);
+    if (!targets.length) return;
+    targets.forEach(async (card) => {
+      try {
+        const isBsky = card.id.startsWith('did:');
+        const url = isBsky
+          ? `/api/gacha?username=${encodeURIComponent(card.username)}`
+          : `/api/user/${card.username}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const updated = await res.json();
+        const joined = updated?.joined;
+        if (joined) updateCard({ ...card, joined });
+      } catch { /* silent */ }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [sort, setSort] = useState<SortKey>("pulledAt");
   const [favOnly, setFavOnly] = useState(false);
   const [enhanceOnly, setEnhanceOnly] = useState(false);
+  const [birthdayOnly, setBirthdayOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [enhanceTarget, setEnhanceTargetState] = useState<string | null>(null);
@@ -141,6 +162,7 @@ export default function CollectionPage() {
     collection.filter(c => {
       if (favOnly && !favorites.includes(c.id)) return false;
       if (enhanceOnly && !(collection.some(x => x.id !== c.id && x.username === c.username) && (c.enhance ?? 0) < MAX_ENHANCE)) return false;
+      if (birthdayOnly && !isBirthday(c.joined)) return false;
       return !search || c.username.includes(search) || c.displayName.includes(search);
     }),
     sort,
@@ -217,6 +239,10 @@ export default function CollectionPage() {
           className={`px-3 py-1 rounded-full text-sm font-bold transition ${enhanceOnly ? "bg-yellow-500 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>
           ⬆️ {t.collection.enhance.btn.replace("⬆️ ", "")}
         </button>
+        <button onClick={() => setBirthdayOnly(v => !v)}
+          className={`px-3 py-1 rounded-full text-sm font-bold transition ${birthdayOnly ? "bg-yellow-500 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>
+          🎂 {t.collection.birthdayOnly}
+        </button>
       </div>
 
       <div className="flex justify-center mb-6">
@@ -234,6 +260,9 @@ export default function CollectionPage() {
           {filtered.map((card, i) => (
             <div key={card.id} className={`relative group slide-in-up transition-all duration-300 ${deletingId === card.id ? 'opacity-0 scale-75' : ''}`} style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}>
               <TcgCard card={card} size="lg" />
+              {isBirthday(card.joined) && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 text-lg" title="🎂 誕生日">🎂</span>
+              )}
               <button onClick={(e) => { e.stopPropagation(); toggleFavorite(card.id); if (!favorites.includes(card.id)) playFavorite(); }}
                 aria-label={favorites.includes(card.id) ? t.gacha.favRemove : t.gacha.favAdd}
                 className={`absolute -bottom-3 -right-3 z-20 text-yellow-400 transition-transform hover:scale-125 ${favorites.includes(card.id) ? 'pulse-glow rounded-full' : ''}`}>

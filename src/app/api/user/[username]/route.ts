@@ -6,7 +6,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ username: string }> }
 ) {
-  if (!rateLimit(getIp(req), 30, 60_000))
+  if (!rateLimit(getIp(req), 60, 60_000))
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   const { username: raw } = await params;

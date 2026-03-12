@@ -35,6 +35,7 @@ const ja = {
       btn: "🔍 Yahoo! で 3.11 を検索する → +10パック",
       done: "受け取り済み",
     },
+    birthdayBonus: (n: number, max: number) => `🎂 誕生日ボーナス！ +1パック（本日${n}/${max}回）`,
     loginBonus: {
       title: "🎁 ログインボーナス",
       streak: (n: number) => `${n}日連続ログイン！`,
@@ -88,6 +89,7 @@ const ja = {
     deleteConfirm: (name: string) => `${name} を削除しますか？`,
     deleteCard: "カードを削除",
     backup: { pwPrompt: "バックアップ暗号化パスフレーズを入力してください（8文字以上）", pwConfirm: "確認のため、同じパスフレーズをもう一度入力してください", pwShort: "パスフレーズは8文字以上にしてください", pwMismatch: "パスフレーズが一致しません", pwDecrypt: "復号パスフレーズを入力", pwWrong: "パスフレーズが違います" },
+    birthdayOnly: "誕生日",
   },
   battle: {
     title: "⚔️ バトル",
@@ -306,7 +308,7 @@ const ja = {
       element: { title: "🌈 属性", intro: "カードには8種類の属性があり、相性によってダメージが1.5倍になります。", items: ["🔥 炎 → 🌿 草（効果抜群）","🌿 草 → ⚡ 雷（効果抜群）","⚡ 雷 → 💧 水（効果抜群）","💧 水 → 🔥 炎（効果抜群）","✨ 光 → 🌑 闇（効果抜群）","🌑 闇 → ✨ 光（効果抜群）","🌙 月 → ❄️ 氷（効果抜群）","❄️ 氷 → 🌙 月（効果抜群）"] },
       daily: { title: "📅 デイリーミッション", intro: "毎日リセットされるミッションを達成すると、ボーナスパックが獲得できます。", items: ["ガチャを5回引く → +2パック","SSR以上を1枚獲得 → +2パック","Twitterプロフィールを開く → +2パック","結果をシェアする → +2パック","バトルを1回行う → +2パック"] },
       random: { title: "⚔️ ランダム対戦", intro: "図鑑のカード1枚を選び、指定した級のランダムな敵と1対1で戦います。", items: ["級（C〜LR）を選ぶと、その強さの敵が出現します","SPDが高い方が先攻。ターン制でお互いに攻撃します","HPが先に0になった方が負け。50ターン経過で時間切れ（残HP多い方が勝利）","クリティカルヒット（最大20%）でダメージ1.5倍","属性相性が良いと「効果抜群」でダメージ1.5倍"] },
-      battleCalc: { title: "⚙️ ダメージ計算式", intro: "バトルのダメージは以下の式で計算されます。", items: ["基本ダメージ = ATK × (100 ÷ (100 + DEF)) × ランダム(0.8〜1.2) × (1 + INT÷3000)","属性有利なら×1.5","クリティカル率 = LUK ÷ 5000（最大20%）","クリティカル時は通常×1.5倍（属性有利+クリティカルは×1.3倍）","SPDが同値の場合は自分が先攻"] },
+      battleCalc: { title: "⚙️ ダメージ計算式", intro: "バトルのダメージは以下の式で計算されます。", items: ["基本ダメージ = ATK × (100 ÷ (100 + DEF)) × ランダム(0.8〜1.2) × (1 + INT÷3000)","属性有利なら×1.5","クリティカル率 = LUK ÷ 5000（最大20%）","クリティカル時は通常×1.5倍（属性有利+クリティカルは×1.3倍）","SPDが同値の場合は自分が先攻","【必殺技】毎ターン25%の確率で発動。人気ツイートのいいね数・RT数が多いほど威力が高い。ツイートの内容によって効果が変わる：「?」→混乱、絵文字3個以上→全強化、「!!」→2回攻撃、ネガティブワード→毒、愛情ワード→吸収、氷系ワード→凍結、弱気ワード→デバフ、回復ワード→リジェネ、反撃ワード→カウンター、爆発ワード→自爆ダメ、沈黙ワード→沈黙、充電ワード→チャージ、運・ガチャワード→ランダム効果、数字含む→クリティカル、長文→防御無視、それ以外→通常攻撃・シールド・回復"] },
       passiveSkill: { title: "⚡ パッシブスキル", intro: "カードのステータス・属性・アカウント情報に応じて自動付与されます。バトル開始時に発動します（1枚1スキル、条件が強いものが優先）。", items: ["伝説：フォロワー1000万超 → 全ステ+20%","新星：アカウント30日未満 → ATK+40%","超インフルエンサー：フォロワー100万超 → ATK+30%","廃人：SPD1000超 → SPD+35%","バランス型：全ステ500以上 → 全ステ+10%","ガラスキャノン：ATK900超かつHP300未満 → ATK+25%","鉄壁：DEF900超かつATK300未満 → DEF+30%","速攻型：ATK・SPD両方700超 → ATK・SPD+10%","魔法使い：INT・LUK両方700超 → INT+15%","不沈艦：DEF・HP両方700超 → DEF・HP+10%","カリスマ：フォロワー/フォロー>10 → LUK+20%","相互フォロー：FF比≈1 → INT+15%","フォロワー乞食：フォロー>フォロワー×2 → SPD+15%","謎の人物：bio空欄 → LUK+30%","無言フォロワー：ツイート10未満 → DEF+20%","ツイ廃：ツイート1万超 → SPD+25%","炎/水/草/雷/光/闇/月/氷の加護：属性に応じたステータス+10%","古参：5年以上 → HP+25%","新参者：1年以内 → SPD+20%","インフルエンサー：フォロワー1万超 → ATK+15%","その他ステータス系スキル"] },
       vsId: { title: "🎯 ID指定対戦", p1: "相手のTwitter IDまたはBlueskyハンドル（例：user.bsky.social）を入力すると、そのアカウントのカードと対戦できます。", p2: "自分のカードは図鑑からランダムに選ばれます。" },
       raid: { title: "🔥 日替わりレイドバトル", intro: "毎日1体の強敵ボスが出現します。最大10枚のデッキを組んで挑戦しましょう。", items: ["ボスのHPは非常に高く、1回の挑戦では倒せないことがあります","削ったボスHPは引き継がれるので、何度でも挑戦できます","一度使ったカードはその日のレイドでは再使用不可","ボスを討伐すると実績が解除されます","翌日には新しいボスが出現します"] },
@@ -414,6 +416,7 @@ const en: typeof ja = {
       btn: "🔍 Search 3.11 on Yahoo! → +10 packs",
       done: "Claimed",
     },
+    birthdayBonus: (n: number, max: number) => `🎂 Birthday Bonus! +1 pack (${n}/${max} today)`,
     loginBonus: {
       title: "🎁 Login Bonus",
       streak: (n: number) => `${n} day streak!`,
@@ -467,6 +470,7 @@ const en: typeof ja = {
     deleteConfirm: (name: string) => `Delete ${name}?`,
     deleteCard: "Delete card",
     backup: { pwPrompt: "Enter encryption passphrase (8+ characters)", pwConfirm: "Enter the same passphrase again to confirm", pwShort: "Passphrase must be at least 8 characters", pwMismatch: "Passphrases do not match", pwDecrypt: "Enter decryption passphrase", pwWrong: "Wrong passphrase" },
+    birthdayOnly: "Birthday",
   },
   battle: {
     title: "⚔️ Battle",
@@ -685,7 +689,7 @@ const en: typeof ja = {
       element: { title: "🌈 Elements", intro: "Cards have 8 element types. Type advantage deals 1.5x damage.", items: ["🔥 Fire → 🌿 Grass (super effective)","🌿 Grass → ⚡ Thunder (super effective)","⚡ Thunder → 💧 Water (super effective)","💧 Water → 🔥 Fire (super effective)","✨ Light → 🌑 Dark (super effective)","🌑 Dark → ✨ Light (super effective)","🌙 Moon → ❄️ Ice (super effective)","❄️ Ice → 🌙 Moon (super effective)"] },
       daily: { title: "📅 Daily Missions", intro: "Complete daily missions to earn bonus packs.", items: ["Draw gacha 5 times → +2 packs","Get 1 SSR or higher → +2 packs","Open a Twitter profile → +2 packs","Share your results → +2 packs","Play 1 battle → +2 packs"] },
       random: { title: "⚔️ Random Battle", intro: "Pick one card from your collection and fight a random opponent of the chosen rank.", items: ["Choose a rank (C–LR) to face an opponent of that strength","Higher SPD attacks first. Turn-based combat","First to reach 0 HP loses. After 50 turns, the side with more HP wins","Critical hits (max 20%) deal 1.5x damage","Type advantage deals 1.5x damage"] },
-      battleCalc: { title: "⚙️ Damage Formula", intro: "Battle damage is calculated as follows:", items: ["Base damage = ATK × (100 ÷ (100 + DEF)) × random(0.8–1.2) × (1 + INT÷3000)","Type advantage multiplies by ×1.5","Critical rate = LUK ÷ 5000 (max 20%)","Critical hit: ×1.5 (or ×1.3 if also type advantage)","Equal SPD: player attacks first"] },
+      battleCalc: { title: "⚙️ Damage Formula", intro: "Battle damage is calculated as follows:", items: ["Base damage = ATK × (100 ÷ (100 + DEF)) × random(0.8–1.2) × (1 + INT÷3000)","Type advantage multiplies by ×1.5","Critical rate = LUK ÷ 5000 (max 20%)","Critical hit: ×1.5 (or ×1.3 if also type advantage)","Equal SPD: player attacks first","【Ultimate】25% chance each turn. Power scales with likes/RTs. Effect depends on tweet content: '?' → confuse, 3+ emojis → boost all stats, '!!' → double hit, dark words → poison, love words → drain, ice words → freeze, weak words → debuff, heal words → regen, counter words → counter, bomb words → nuke (self-damage), silence words → silence, charge words → charge, luck/gacha words → random effect, numbers → crit, long text → pierce, otherwise → damage / shield / heal"] },
       passiveSkill: { title: "⚡ Passive Skills", intro: "Skills are automatically assigned based on card stats and activate at the start of battle.", items: ["Influencer: followers > 10K → ATK+15%","Prolific: SPD > 500 → SPD+20%","Iron Wall: DEF > 800 → DEF+15%","Veteran: HP > 700 → HP+20%","Lucky: LUK > 700 → LUK+25%","Tactician: INT > 700 → INT+20%"] },
       vsId: { title: "🎯 ID Battle", p1: "Enter an opponent's Twitter ID or Bluesky handle (e.g. user.bsky.social) to battle their card.", p2: "Your card is randomly selected from your collection." },
       raid: { title: "🔥 Daily Raid Battle", intro: "A powerful boss appears every day. Build a deck of up to 10 cards to challenge it.", items: ["Boss HP is very high and may not be defeated in one attempt","Damage dealt carries over between attempts","Cards used in a raid cannot be reused that day","Defeating the boss unlocks achievements","A new boss appears the next day"] },

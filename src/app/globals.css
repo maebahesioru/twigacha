@@ -167,3 +167,200 @@ body {
 nav.sticky {
   padding-top: env(safe-area-inset-top);
 }
+
+/* カードフレームアニメーション */
+@keyframes rainbow-border {
+  0%   { border-color: #f472b6; }
+  16%  { border-color: #fb923c; }
+  33%  { border-color: #facc15; }
+  50%  { border-color: #4ade80; }
+  66%  { border-color: #60a5fa; }
+  83%  { border-color: #a78bfa; }
+  100% { border-color: #f472b6; }
+}
+@keyframes fire-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px #f97316, 0 0 20px 4px #ef4444; }
+  50%       { box-shadow: 0 0 16px 6px #fbbf24, 0 0 32px 8px #f97316; }
+}
+@keyframes birthday-sparkle {
+  0%, 100% { box-shadow: 0 0 8px 2px #f9a8d4, 0 0 0 0 #fbcfe8; }
+  50%       { box-shadow: 0 0 16px 6px #ec4899, 0 0 24px 4px #f9a8d4; }
+}
+@keyframes gold-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px #fbbf24, 0 0 16px 4px #f59e0b; }
+  50%       { box-shadow: 0 0 16px 6px #fcd34d, 0 0 28px 8px #fbbf24; }
+}
+@keyframes purple-glow {
+  0%, 100% { box-shadow: 0 0 6px 2px #a78bfa; }
+  50%       { box-shadow: 0 0 14px 5px #c4b5fd; }
+}
+@keyframes silver-glow {
+  0%, 100% { box-shadow: 0 0 6px 2px #94a3b8; }
+  50%       { box-shadow: 0 0 12px 4px #cbd5e1; }
+}
+@keyframes star-glow {
+  0%, 100% { box-shadow: 0 0 6px 2px #fde68a; }
+  50%       { box-shadow: 0 0 14px 5px #fef08a; }
+}
+.frame-gold    { animation: gold-glow 1.2s ease infinite; border-color: #fbbf24 !important; }
+.frame-purple  { animation: purple-glow 1.5s ease infinite; border-color: #a78bfa !important; }
+.frame-silver  { animation: silver-glow 1.5s ease infinite; border-color: #94a3b8 !important; }
+.frame-star    { animation: star-glow 1.5s ease infinite; border-color: #fde68a !important; }
+.frame-fire    { animation: fire-glow 1s ease infinite; border-color: #f97316 !important; }
+.frame-rainbow { animation: rainbow-border 2s linear infinite; border-width: 3px !important; }
+.frame-birthday { animation: birthday-sparkle 1.5s ease infinite; border-color: #ec4899 !important; }
+.frame-gold    { animation: gold-glow 1.2s ease infinite; border-color: #fbbf24 !important; }
+.frame-purple  { animation: purple-glow 1.5s ease infinite; border-color: #a78bfa !important; }
+.frame-silver  { animation: silver-glow 1.5s ease infinite; border-color: #94a3b8 !important; }
+.frame-star    { animation: star-glow 1.5s ease infinite; border-color: #fde68a !important; }
+@keyframes crown-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px #fcd34d, 0 0 20px 4px #f59e0b; }
+  50%       { box-shadow: 0 0 20px 8px #fef08a, 0 0 36px 10px #fcd34d; }
+}
+@keyframes green-glow {
+  0%, 100% { box-shadow: 0 0 6px 2px #4ade80; }
+  50%       { box-shadow: 0 0 14px 5px #86efac; }
+}
+@keyframes cyan-glow {
+  0%, 100% { box-shadow: 0 0 6px 2px #22d3ee; }
+  50%       { box-shadow: 0 0 14px 5px #67e8f9; }
+}
+.frame-crown { animation: crown-glow 1s ease infinite; border-color: #fcd34d !important; border-width: 3px !important; }
+.frame-green { animation: green-glow 1.5s ease infinite; border-color: #4ade80 !important; }
+.frame-cyan  { animation: cyan-glow 1.5s ease infinite; border-color: #22d3ee !important; }
+@keyframes platinum-glow {
+  0%, 100% { box-shadow: 0 0 12px 4px #e2e8f0, 0 0 28px 8px #f8fafc; }
+  50%       { box-shadow: 0 0 24px 10px #fff, 0 0 48px 14px #e2e8f0; }
+}
+@keyframes red-glow {
+  0%, 100% { box-shadow: 0 0 6px 2px #f87171; }
+  50%       { box-shadow: 0 0 14px 5px #fca5a5; }
+}
+@keyframes orange-glow {
+  0%, 100% { box-shadow: 0 0 6px 2px #fb923c; }
+  50%       { box-shadow: 0 0 14px 5px #fdba74; }
+}
+@keyframes white-glow {
+  0%, 100% { box-shadow: 0 0 4px 1px #cbd5e1; }
+  50%       { box-shadow: 0 0 10px 3px #e2e8f0; }
+}
+.frame-platinum { animation: platinum-glow 1.2s ease infinite; border-color: #e2e8f0 !important; border-width: 3px !important; }
+.frame-red      { animation: red-glow 1.5s ease infinite; border-color: #f87171 !important; }
+.frame-orange   { animation: orange-glow 1.5s ease infinite; border-color: #fb923c !important; }
+.frame-white    { animation: white-glow 2s ease infinite; border-color: #cbd5e1 !important; }
+
+/* カードスキンオーバーレイ */
+@keyframes holo-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes glitch {
+  0%, 100% { transform: translate(0); }
+  20%  { transform: translate(-2px, 1px); }
+  40%  { transform: translate(2px, -1px); }
+  60%  { transform: translate(-1px, 2px); }
+  80%  { transform: translate(1px, -2px); }
+}
+.skin-holo {
+  background: linear-gradient(135deg, rgba(255,0,128,0.15), rgba(0,255,255,0.15), rgba(255,255,0,0.15), rgba(128,0,255,0.15));
+  background-size: 400% 400%;
+  animation: holo-shift 3s ease infinite;
+}
+.skin-neon {
+  background: linear-gradient(135deg, rgba(255,0,200,0.12), rgba(0,200,255,0.12));
+  background-size: 200% 200%;
+  animation: holo-shift 2s ease infinite;
+}
+.skin-glitch { animation: glitch 0.8s ease infinite; }
+.skin-platinum {
+  background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(200,220,255,0.12));
+  background-size: 300% 300%;
+  animation: holo-shift 4s ease infinite;
+}
+.skin-birthday {
+  background: linear-gradient(135deg, rgba(255,100,200,0.12), rgba(255,200,100,0.12));
+  background-size: 200% 200%;
+  animation: holo-shift 2.5s ease infinite;
+}
+
+.skin-star     { background: radial-gradient(ellipse at 50% 0%, rgba(253,224,71,0.18), transparent 70%); }
+.skin-purple   { background: linear-gradient(135deg, rgba(167,139,250,0.15), rgba(109,40,217,0.1)); }
+.skin-green    { background: linear-gradient(135deg, rgba(74,222,128,0.12), rgba(21,128,61,0.08)); }
+.skin-red      { background: linear-gradient(135deg, rgba(248,113,113,0.15), rgba(185,28,28,0.08)); }
+.skin-orange   { background: linear-gradient(135deg, rgba(251,146,60,0.15), rgba(194,65,12,0.08)); }
+.skin-cyan     { background: linear-gradient(135deg, rgba(34,211,238,0.12), rgba(8,145,178,0.08)); }
+.skin-silver   { background: linear-gradient(135deg, rgba(148,163,184,0.15), rgba(71,85,105,0.08)); }
+.skin-white    { background: linear-gradient(135deg, rgba(203,213,225,0.1), transparent); }
+.skin-blue     { background: linear-gradient(135deg, rgba(96,165,250,0.12), rgba(29,78,216,0.08)); }
+.skin-crown    { background: linear-gradient(135deg, rgba(252,211,77,0.18), rgba(245,158,11,0.1)); background-size: 200% 200%; animation: holo-shift 3s ease infinite; }
+
+/* スキン強化版 */
+@keyframes shine {
+  0%   { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(200%) skewX(-15deg); }
+}
+.skin-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: shine 2s ease infinite;
+  pointer-events: none;
+  z-index: 11;
+}
+.skin-holo     { background: linear-gradient(135deg, rgba(255,0,128,0.3), rgba(0,255,255,0.3), rgba(255,255,0,0.3), rgba(128,0,255,0.3)); background-size: 400% 400%; animation: holo-shift 2s ease infinite; }
+.skin-neon     { background: linear-gradient(135deg, rgba(255,0,200,0.25), rgba(0,200,255,0.25)); background-size: 200% 200%; animation: holo-shift 1.5s ease infinite; }
+.skin-platinum { background: linear-gradient(135deg, rgba(255,255,255,0.35), rgba(200,220,255,0.25)); background-size: 300% 300%; animation: holo-shift 3s ease infinite; }
+.skin-birthday { background: linear-gradient(135deg, rgba(255,100,200,0.25), rgba(255,200,100,0.25)); background-size: 200% 200%; animation: holo-shift 2s ease infinite; }
+.skin-crown    { background: linear-gradient(135deg, rgba(252,211,77,0.35), rgba(245,158,11,0.2)); background-size: 200% 200%; animation: holo-shift 2s ease infinite; }
+.skin-star     { background: radial-gradient(ellipse at 50% 0%, rgba(253,224,71,0.35), transparent 70%); }
+.skin-purple   { background: linear-gradient(135deg, rgba(167,139,250,0.3), rgba(109,40,217,0.2)); }
+.skin-green    { background: linear-gradient(135deg, rgba(74,222,128,0.25), rgba(21,128,61,0.15)); }
+.skin-red      { background: linear-gradient(135deg, rgba(248,113,113,0.3), rgba(185,28,28,0.15)); }
+.skin-orange   { background: linear-gradient(135deg, rgba(251,146,60,0.3), rgba(194,65,12,0.15)); }
+.skin-cyan     { background: linear-gradient(135deg, rgba(34,211,238,0.25), rgba(8,145,178,0.15)); }
+.skin-silver   { background: linear-gradient(135deg, rgba(148,163,184,0.3), rgba(71,85,105,0.15)); }
+.skin-white    { background: linear-gradient(135deg, rgba(203,213,225,0.2), transparent); }
+.skin-blue     { background: linear-gradient(135deg, rgba(96,165,250,0.25), rgba(29,78,216,0.15)); }
+
+/* 派手エフェクト強化 */
+@keyframes shine2 {
+  0%   { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(200%) skewX(-15deg); }
+}
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50%       { opacity: 1; transform: scale(1.2); }
+}
+@keyframes rotate-holo {
+  0%   { background-position: 0% 0%; filter: hue-rotate(0deg) brightness(1.2); }
+  50%  { background-position: 100% 100%; filter: hue-rotate(180deg) brightness(1.5); }
+  100% { background-position: 0% 0%; filter: hue-rotate(360deg) brightness(1.2); }
+}
+.skin-holo {
+  background: linear-gradient(135deg, rgba(255,0,128,0.4), rgba(0,255,255,0.4), rgba(255,255,0,0.4), rgba(128,0,255,0.4));
+  background-size: 400% 400%;
+  animation: rotate-holo 1.5s ease infinite;
+}
+.skin-neon {
+  background: linear-gradient(135deg, rgba(255,0,200,0.4), rgba(0,200,255,0.4), rgba(255,100,0,0.3));
+  background-size: 300% 300%;
+  animation: holo-shift 1s ease infinite;
+}
+.skin-platinum {
+  background: linear-gradient(135deg, rgba(255,255,255,0.5), rgba(200,220,255,0.4), rgba(255,255,255,0.5));
+  background-size: 300% 300%;
+  animation: holo-shift 2s ease infinite;
+  filter: brightness(1.3);
+}
+.skin-shine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+  width: 40%;
+  animation: shine2 1.5s ease infinite;
+  pointer-events: none;
+  z-index: 12;
+}

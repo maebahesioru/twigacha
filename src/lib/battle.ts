@@ -136,7 +136,7 @@ const MSG = {
   },
 };
 
-export function simulateBattle(p: TwitterCard, e: TwitterCard, lang: "ja" | "en" = "ja") {
+export function simulateBattle(p: TwitterCard, e: TwitterCard, lang: "ja" | "en" = "ja", pUltRate = 0.25) {
   const m = MSG[lang];
   // ultimatesがない場合はbio/usernameから生成
   const ensureUlts = (card: TwitterCard) => {
@@ -164,10 +164,10 @@ export function simulateBattle(p: TwitterCard, e: TwitterCard, lang: "ja" | "en"
   const SIMPLE_EFFECTS = ["damage","shield","heal","confuse","boost","crit","multi","poison","drain","pierce","freeze","debuff","regen","counter","nuke","silence","charge"];
   const EFFECT_LABEL = m.effects;
   const tryUltimate = (attacker: TwitterCard, isPlayer: boolean): { dmg: number; heal: number; text: string; effect: string } | null => {
-    if (!attacker.ultimates?.length || Math.random() > 0.25) return null;
+    if (!attacker.ultimates?.length || Math.random() > (isPlayer ? pUltRate : 0.25)) return null;
     if (isPlayer ? pSilence > 0 : eSilence > 0) { if (isPlayer) pSilence--; else eSilence--; log.push(`Turn ${turn}: ${m.silence(attacker.username)}`); return null; }
     const u = attacker.ultimates[Math.floor(Math.random() * attacker.ultimates.length)];
-    const mult = Math.min(1.5, 1 + u.score / 100000);
+    const mult = Math.min(1.2, 1 + u.score / 200000);
     let effect = u.effect ?? "damage";
     if (effect === "random") effect = SIMPLE_EFFECTS[Math.floor(Math.random() * SIMPLE_EFFECTS.length)];
     const baseDmg = Math.round(attacker.atk * mult);

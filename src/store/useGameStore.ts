@@ -36,6 +36,9 @@ interface GameStore {
   quest311Date: string;
   quest311Rewarded: boolean;
   claimQuest311: () => void;
+  birthdayBonusDate: string;
+  birthdayBonusCount: number;
+  claimBirthdayBonus: () => boolean; // returns true if bonus given
   packMissionDate: string;
   packMissionRewarded: boolean;
   shareDate: string;
@@ -176,6 +179,17 @@ export const useGameStore = create<GameStore>()(
         if (quest311Date === today && quest311Rewarded) return;
         const current = bonusPackDate === today ? bonusPacks : 0;
         set({ quest311Date: today, quest311Rewarded: true, bonusPacks: current + 10, bonusPackDate: today });
+      },
+      birthdayBonusDate: "",
+      birthdayBonusCount: 0,
+      claimBirthdayBonus: () => {
+        const { birthdayBonusDate, birthdayBonusCount, bonusPacks, bonusPackDate } = get();
+        const today = new Date().toDateString();
+        const count = birthdayBonusDate === today ? birthdayBonusCount : 0;
+        if (count >= 5) return false;
+        const current = bonusPackDate === today ? bonusPacks : 0;
+        set({ birthdayBonusDate: today, birthdayBonusCount: count + 1, bonusPacks: current + 1, bonusPackDate: today });
+        return true;
       },
       shareDate: "",
       shareDone: false,
