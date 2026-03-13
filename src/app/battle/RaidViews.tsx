@@ -198,8 +198,8 @@ export function RaidViews(p: RaidProps) {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full max-w-2xl">
           <button onClick={() => navigator.clipboard.writeText(copyText)} className="px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition">{t.battle.result.copyBtn}</button>
-          <button onClick={() => window.open(shareUrl, '_blank')} className="px-5 py-3 bg-sky-500 rounded-xl font-bold hover:bg-sky-400 transition">{t.battle.result.shareBtn}</button>
-          <button onClick={() => window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank')} className="px-5 py-3 bg-blue-500 rounded-xl font-bold hover:bg-blue-400 transition">Bluesky</button>
+          <button onClick={() => { window.open(shareUrl, '_blank'); import('@/store/useGameStore').then(m => m.useGameStore.getState().markShare()); }} className="px-5 py-3 bg-sky-500 rounded-xl font-bold hover:bg-sky-400 transition">{t.battle.result.shareBtn}</button>
+          <button onClick={() => { window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank'); import('@/store/useGameStore').then(m => m.useGameStore.getState().markShare()); }} className="px-5 py-3 bg-blue-500 rounded-xl font-bold hover:bg-blue-400 transition">Bluesky</button>
           <button onClick={() => { setRaidLog(() => []); setRaidResult(null); setView('raid'); }} className="px-5 py-3 bg-orange-600 rounded-xl font-bold hover:bg-orange-500 transition">{t.battle.raid.retry}</button>
           <div /><div />
           <button onClick={() => setView('menu')} className="px-5 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition text-gray-300">{t.battle.result.menu}</button>

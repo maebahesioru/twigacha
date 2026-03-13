@@ -1,14 +1,24 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import TcgCard from "@/components/TcgCard";
 import { useT } from "@/hooks/useT";
 import { simulateBattle } from "@/lib/battle";
 import type { TwitterCard } from "@/types";
+import { useGameStore } from "@/store/useGameStore";
 
 export default function CardPageClient({ username, initialCard }: { username: string; initialCard: TwitterCard | null }) {
   const t = useT();
-  const [card] = useState<TwitterCard | null>(initialCard);
+  const [card, setCard] = useState<TwitterCard | null>(initialCard);
+  const [loading, setLoading] = useState(!initialCard);
+
+  useEffect(() => {
+    if (initialCard) return;
+    fetch(`/api/gacha?username=${encodeURIComponent(username)}`)
+      .then(r => r.json())
+      .then(d => { if (d && !d.error) setCard(d); })
+      .finally(() => setLoading(false));
+  }, [username, initialCard]);
   const [simResult, setSimResult] = useState<{ winner: string; turns: number } | null>(null);
   const [simCard, setSimCard] = useState<TwitterCard | null>(null);
 
@@ -29,6 +39,12 @@ export default function CardPageClient({ username, initialCard }: { username: st
 
   const b = t.battle;
 
+  if (loading) return (
+    <div className="min-h-dvh bg-gray-950 text-white flex items-center justify-center">
+      <p className="text-gray-400 animate-pulse">Loading...</p>
+    </div>
+  );
+
   if (!card) return (
     <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center justify-center gap-4 px-4">
       <p className="text-gray-400">{t.cardSearch.notFound(username)}</p>
@@ -48,20 +64,18 @@ export default function CardPageClient({ username, initialCard }: { username: st
 
       {/* シェアボタン */}
       <div className="flex gap-3">
-        <a
-          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(t.battle.cardPageShareText(card.displayName, card.rarity, card.username))}`}
-          target="_blank" rel="noopener noreferrer"
+        <button
+          onClick={() => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(t.battle.cardPageShareText(card.displayName, card.rarity, card.username))}`, '_blank'); useGameStore.getState().markShare(); }}
           className="px-4 py-2 bg-black hover:bg-gray-900 border border-gray-700 rounded-xl font-bold text-sm transition flex items-center gap-2"
         >
           {t.battle.cardPageShareX}
-        </a>
-        <a
-          href={`https://bsky.app/intent/compose?text=${encodeURIComponent(t.battle.cardPageShareText(card.displayName, card.rarity, card.username))}`}
-          target="_blank" rel="noopener noreferrer"
+        </button>
+        <button
+          onClick={() => { window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(t.battle.cardPageShareText(card.displayName, card.rarity, card.username))}`, '_blank'); useGameStore.getState().markShare(); }}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-sm transition flex items-center gap-2"
         >
           {t.battle.cardPageShareBsky}
-        </a>
+        </button>
       </div>
 
       {/* バトルシミュレーション */}

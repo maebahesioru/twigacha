@@ -512,8 +512,8 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
           const resultLabel = battleResult.result === "win" ? t.battle.team.win : battleResult.result === "lose" ? t.battle.team.lose : t.battle.team.draw;
           const copyText = t.battle.team.copyText(battleResult.wins, battleResult.losses, teamKyu ?? "", onlineNames?.opponent);
           return (<>
-            <button onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(copyText)}`, '_blank')} className="ripple-btn py-3 bg-sky-600 rounded-xl font-bold hover:bg-sky-500 transition">{t.battle.result.shareBtn}</button>
-            <button onClick={() => window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank')} className="ripple-btn py-3 bg-blue-500 rounded-xl font-bold hover:bg-blue-400 transition">Bluesky</button>
+            <button onClick={() => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(copyText)}`, '_blank'); useGameStore.getState().markShare(); }} className="ripple-btn py-3 bg-sky-600 rounded-xl font-bold hover:bg-sky-500 transition">{t.battle.result.shareBtn}</button>
+            <button onClick={() => { window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank'); useGameStore.getState().markShare(); }} className="ripple-btn py-3 bg-blue-500 rounded-xl font-bold hover:bg-blue-400 transition">Bluesky</button>
           </>);
         })()}
       </div>

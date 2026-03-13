@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from "react";
 import TcgCard from "@/components/TcgCard";
 import { useT } from "@/hooks/useT";
 import type { TwitterCard } from "@/types";
+import { simulateBattle } from "@/lib/battle";
+import { useGameStore } from "@/store/useGameStore";
 
 type OnlineResult = { wins: number; losses: number; result: "win"|"lose"|"draw"; rounds: { winner: string; pHp: number; eHp: number; turns: number; ko: boolean; log: string[]; hpSnaps: {pHp:number;eHp:number}[] }[] };
 
@@ -174,6 +176,7 @@ export function OnlineBattleView({ playerCard, onBack, t, onMatchResult, initial
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hostIdRef = useRef(getUid());
   const stopPoll = () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
+  const lang = useGameStore(s => s.lang);
 
   useEffect(() => {
     const refresh = () => fetch("/api/challenge").then(r => r.json()).then(d => setOnline(d.online ?? null)).catch(() => {});
@@ -231,7 +234,27 @@ export function OnlineBattleView({ playerCard, onBack, t, onMatchResult, initial
     finally { setLoading(false); }
   };
 
-  if (mode === "matching") return (
+  
+  // タイムアウト: 30秒でCPU対戦
+  useEffect(() => {
+    if (mode !== "matching" || !selectedCard) return;
+    const timer = setTimeout(async () => {
+      stopPoll();
+      if (queueId) await post({ action: "matchmake_cancel", queueId }).catch(() => {});
+      try {
+        const res = await fetch("/api/gacha?count=1");
+        const data = await res.json();
+        const botCard: TwitterCard = Array.isArray(data) ? data[0] : data;
+        if (!botCard || (botCard as { error?: string }).error) { setMode("menu"); return; }
+        const result = simulateBattle(selectedCard, botCard, lang as "ja" | "en");
+        onMatchResult(botCard, result, true, getDisplayName(), "🤖 CPU");
+      } catch { setMode("menu"); }
+    }, 30000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+if (mode === "matching") return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-6 px-4 slide-in-up">
       <h2 className="text-xl font-bold text-violet-400 animate-pulse">🔍 {t.battle.onlineWaiting}</h2>
       {getDisplayName() && <p className="text-gray-300 text-sm">{t.battle.onlineWaitingAs(getDisplayName())}</p>}

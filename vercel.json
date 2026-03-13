@@ -4,5 +4,11 @@
       "path": "/api/push/send",
       "schedule": "0 15 * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/card/:username*",
+      "destination": "/card/:username*"
+    }
   ]
 }

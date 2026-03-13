@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "abs.twimg.com" },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/card/:username*",
+        destination: "/card/:username*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

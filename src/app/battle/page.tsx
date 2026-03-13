@@ -21,7 +21,7 @@ function BattlePageInner() {
     raidDate, raidBossMaxHp, raidBossHp, raidBossCard, raidCleared, raidDeck, raidUsedCards,
     setRaidDeck, damageRaidBoss, addRaidUsedCards, initRaid, clearRaid, incrementRaidClearCount, raidHistory, addRaidHistory,
     teamBattleHistory, addTeamBattleResult, savedTeam, setSavedTeam, savedDecks, savedeck, deleteDeck,
-    battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard, markRaidMission, claimBirthdayBonus } = useGameStore();
+    battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard, markRaidMission, claimBirthdayBonus, markShare } = useGameStore();
   const [localSpeed, setLocalSpeed] = useState(battleSpeed);
   const battleSpeedRef = useRef(localSpeed);
   useEffect(() => { battleSpeedRef.current = localSpeed; setBattleSpeed(localSpeed); }, [localSpeed]);
@@ -105,14 +105,14 @@ function BattlePageInner() {
       const card: TwitterCard = Array.isArray(data) ? data[0] : data;
       if (!card || (card as unknown as { error?: string }).error) return;
       // {t.battle.raid.bossHp}はカードの10倍
-      const maxHp = card.hp * 20;
+      const maxHp = Math.max(card.hp * 50, 5000);
       const boss: TwitterCard = { ...card,
         hp: maxHp,
-        atk: Math.round(card.atk * 3.0),
-        def: Math.round(card.def * 3.0),
-        spd: Math.round(card.spd * 1.5),
-        int: Math.round(card.int * 2.0),
-        luk: Math.round(card.luk * 1.5),
+        atk: Math.max(Math.round(card.atk * 3.0), 300),
+        def: Math.max(Math.round(card.def * 3.0), 300),
+        spd: Math.max(Math.round(card.spd * 1.5), 200),
+        int: Math.max(Math.round(card.int * 2.0), 200),
+        luk: Math.max(Math.round(card.luk * 1.5), 200),
         rarity: "LR",
       };
       initRaid(todayStr, boss, maxHp);
@@ -720,14 +720,14 @@ function BattlePageInner() {
             className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.rematch}</button>
           <button onClick={() => { setEnemyCard(null); setLog([]); setResult(null); setView('rarity'); }}
             className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-gray-600 rounded-xl font-bold hover:bg-gray-500 transition">{t.battle.result.changeKyu}</button>
-          <button onClick={() => window.open(shareUrl, '_blank')}
+          <button onClick={() => { window.open(shareUrl, '_blank'); markShare(); }}
             className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-sky-600 rounded-xl font-bold hover:bg-sky-500 transition">{ t.battle.result.shareBtn}</button>
+          <button onClick={() => { window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank'); markShare(); }}
+            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition">Bluesky</button>
           <button onClick={() => { setEnemyCard(null); setLog([]); setResult(null); setView('rarity'); }}
             className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.sameKyu}</button>
           <button onClick={() => { setLog([]); setResult(null); setView('select'); }}
             className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-gray-600 rounded-xl font-bold hover:bg-gray-500 transition">{t.battle.result.changeCard}</button>
-          <button onClick={() => window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank')}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition">Bluesky</button>
           <button onClick={() => { setEnemyCard(null); setLog([]); setResult(null); setView('select'); }}
             className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.sameKyuNewCard}</button>
           <button onClick={() => setView('menu')}

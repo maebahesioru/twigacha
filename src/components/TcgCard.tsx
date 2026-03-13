@@ -27,15 +27,16 @@ export default function TcgCard({ card, size = "md", onClick, selected }: Props)
 
   return (
     <div
-      onClick={() => { const url = card.username.includes('.') ? `https://bsky.app/profile/${card.username}` : `https://twitter.com/${card.username}`; window.open(url, '_blank', 'noopener,noreferrer'); if (onClick) onClick(); }}
+      onClick={() => { if (onClick === undefined) return; const url = card.username.includes('.') ? `https://bsky.app/profile/${card.username}` : `https://twitter.com/${card.username}`; window.open(url, '_blank', 'noopener,noreferrer'); onClick(); }}
       className={`
         ${s.wrap} relative flex flex-col rounded-xl cursor-pointer select-none
         bg-gradient-to-b ${gradient}
-        border-2 ${selected ? "border-white scale-105" : "border-white/30"}
+        border-4 ${selected ? "border-pink-400 shadow-pink-500/50 shadow-xl" : "border-white/30"}
         shadow-lg transition-all duration-200 hover:shadow-2xl card-3d
         overflow-hidden p-1.5 gap-1
       `}
     >
+      {selected && <div className="absolute inset-0 bg-pink-500/20 z-10 pointer-events-none rounded-xl" />}
       {/* ヘッダー: レアリティ + 名前/ID + エレメント */}
       <div className="flex justify-between items-center px-1">
         <span className="font-black text-white drop-shadow">{card.rarity}{(card.enhance ?? 0) > 0 && <span className="text-yellow-300 text-xs ml-0.5">+{card.enhance}</span>}</span>

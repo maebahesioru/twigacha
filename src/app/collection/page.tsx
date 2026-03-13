@@ -29,7 +29,7 @@ function sortCards(cards: TwitterCard[], key: SortKey, all: TwitterCard[] = []):
 }
 
 export default function CollectionPage() {
-  const { collection, removeCard, updateCard, totalPackCount, toggleFavorite, favorites } = useGameStore();
+  const { collection, removeCard, updateCard, totalPackCount, toggleFavorite, favorites, markTwitter } = useGameStore();
   const t = useT();
 
   // joinedが空のカードをバックグラウンドで更新（最大10枚）
@@ -56,12 +56,31 @@ export default function CollectionPage() {
   const [enhanceOnly, setEnhanceOnly] = useState(false);
   const [birthdayOnly, setBirthdayOnly] = useState(false);
   const [search, setSearch] = useState("");
+  const [statFilter, setStatFilter] = useState<{ key: string; max: string }>({ key: "atk", max: "" });
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const selectModeRef = useRef(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [enhanceTarget, setEnhanceTargetState] = useState<string | null>(null);
   const enhanceRef = useRef<string | null>(null);
   const setEnhanceTarget = (id: string | null) => { enhanceRef.current = id; setEnhanceTargetState(id); };
 
   const MAX_ENHANCE = 6;
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  useEffect(() => {
+    const onScroll = () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 300) {
+        setVisibleCount(v => v + 20);
+      }
+    };
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => { setVisibleCount(20); }, [search, favOnly, enhanceOnly, birthdayOnly, sort, statFilter]);
 
   const handleEnhance = (targetId: string, materialId: string) => {
     const target = collection.find(c => c.id === targetId);
@@ -245,10 +264,53 @@ export default function CollectionPage() {
         </button>
       </div>
 
-      <div className="flex justify-center mb-6">
+      <div className="flex flex-wrap justify-center gap-2 mb-6">
         <input value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder={t.collection.search}
           className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm w-full max-w-xs focus:outline-none focus:border-purple-500" />
+      </div>
+
+      {/* 選択モード */}
+      <div className="flex flex-wrap gap-2 justify-center items-center mb-4">
+        {selectMode && (<>
+          {(["LR","UR","SSR","SR","R","N","C"] as Rarity[]).map(r => (
+            <button key={r} onClick={() => setSelectedIds(prev => {
+              const next = new Set(prev);
+              const ids = filtered.filter(c => c.rarity === r).map(c => c.id);
+              const allSelected = ids.every(id => next.has(id));
+              ids.forEach(id => allSelected ? next.delete(id) : next.add(id));
+              return next;
+            })} className="px-2 py-1 rounded-full text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white transition">{r}</button>
+          ))}
+          <button onClick={() => setSelectedIds(new Set(filtered.map(c => c.id)))}
+            className="px-3 py-1 rounded-full text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white transition">{t.collection.selectAll}</button>
+          <button onClick={() => { setSelectedIds(new Set()); setSelectMode(false); selectModeRef.current = false; }}
+            className="px-3 py-1 rounded-full text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white transition">{t.collection.selectNone}</button>
+          {selectedIds.size > 0 && (
+            <button onClick={() => { if (confirm(t.collection.bulkDeleteConfirm(selectedIds.size))) { selectedIds.forEach(id => removeCard(id)); setSelectedIds(new Set()); setSelectMode(false); selectModeRef.current = false; } }}
+              className="px-3 py-1 rounded-full text-sm font-bold bg-red-600 hover:bg-red-500 text-white transition">
+              🗑️ {t.collection.bulkDelete(selectedIds.size)}
+            </button>
+          )}
+          <div className="flex items-center gap-1 w-full justify-center mt-1">
+            <select value={statFilter.key} onChange={e => setStatFilter(s => ({ ...s, key: e.target.value }))}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs focus:outline-none">
+              {["atk","def","spd","hp","int","luk"].map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}
+            </select>
+            <input value={statFilter.max} onChange={e => setStatFilter(s => ({ ...s, max: e.target.value }))}
+              placeholder="以下で選択" type="number" min={0}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs w-24 focus:outline-none" />
+            <button onClick={() => {
+              const max = parseInt(statFilter.max);
+              if (isNaN(max)) return;
+              setSelectedIds(prev => {
+                const next = new Set(prev);
+                filtered.forEach(c => { if (((c as unknown as Record<string,number>)[statFilter.key] ?? 0) <= max) next.add(c.id); });
+                return next;
+              });
+            }} className="px-2 py-1 rounded-lg text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white transition">選択</button>
+          </div>
+        </>)}
       </div>
 
       {filtered.length === 0 ? (
@@ -256,29 +318,39 @@ export default function CollectionPage() {
           {collection.length === 0 ? t.collection.empty : t.collection.noResults}
         </p>
       ) : (
+        <>
         <div className="flex flex-wrap gap-4 justify-center">
-          {filtered.map((card, i) => (
-            <div key={card.id} className={`relative group slide-in-up transition-all duration-300 ${deletingId === card.id ? 'opacity-0 scale-75' : ''}`} style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}>
-              <TcgCard card={card} size="lg" />
+          {filtered.slice(0, visibleCount).map((card, i) => (
+            <div key={card.id} className={`relative group slide-in-up transition-all duration-300 cursor-pointer ${deletingId === card.id ? 'opacity-0 scale-75' : ''}`} style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
+              onClick={selectMode ? (e) => { e.preventDefault(); e.stopPropagation(); setSelectedIds(prev => { const next = new Set(prev); next.has(card.id) ? next.delete(card.id) : next.add(card.id); return next; }); } : undefined}>
+              <TcgCard card={card} size="lg" onClick={selectMode ? undefined : markTwitter} selected={selectMode && selectedIds.has(card.id)} />
               {isBirthday(card.joined) && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 text-lg" title="🎂 誕生日">🎂</span>
               )}
-              <button onClick={(e) => { e.stopPropagation(); toggleFavorite(card.id); if (!favorites.includes(card.id)) playFavorite(); }}
-                aria-label={favorites.includes(card.id) ? t.gacha.favRemove : t.gacha.favAdd}
-                className={`absolute -bottom-3 -right-3 z-20 text-yellow-400 transition-transform hover:scale-125 ${favorites.includes(card.id) ? 'pulse-glow rounded-full' : ''}`}>
-                <Star size={24} fill={favorites.includes(card.id) ? "currentColor" : "none"} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); if (confirm(t.collection.deleteConfirm(card.displayName))) { playDelete(); setDeletingId(card.id); setTimeout(() => { removeCard(card.id); setDeletingId(null); }, 300); } }}
-                aria-label={t.collection.deleteCard}
-                className="absolute -bottom-3 -left-3 z-20 bg-red-600 hover:bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Trash2 size={14} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); const url = `https://twigacha.vercel.app/card/${card.username}`; navigator.clipboard.writeText(url); }}
-                className="absolute -top-3 -right-3 z-20 bg-blue-600 hover:bg-blue-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                title={t.collection.cardShare}>
-                <Link2 size={14} />
-              </button>
-              {(card.enhance ?? 0) < MAX_ENHANCE && collection.some(c => c.id !== card.id && c.username === card.username) && (
+              {!selectMode && <div className="absolute -bottom-3 -right-3 z-20 flex items-center gap-1">
+                <button onClick={(e) => { e.stopPropagation(); const url = `https://twigacha.vercel.app/card/${card.username}`; navigator.clipboard.writeText(url); setCopiedId(card.id); setTimeout(() => setCopiedId(null), 1500); }}
+                  className="relative bg-blue-600 hover:bg-blue-500 text-white rounded-full p-1.5 transition-opacity"
+                  title={t.collection.cardShare}>
+                  <Link2 size={16} />
+                  {copiedId === card.id && (
+                    <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-0.5 whitespace-nowrap">Copied!</span>
+                  )}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (selectMode) { if (confirm(t.collection.bulkDeleteConfirm(selectedIds.size || 1))) { (selectedIds.size ? selectedIds : new Set([card.id])).forEach(id => removeCard(id)); setSelectedIds(new Set()); setSelectMode(false); selectModeRef.current = false; } } else if (confirm(t.collection.deleteConfirm(card.displayName))) { playDelete(); setDeletingId(card.id); setTimeout(() => { removeCard(card.id); setDeletingId(null); }, 300); } }}
+                  onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectMode(true); selectModeRef.current = true; setSelectedIds(new Set([card.id])); }}
+                  onPointerDown={(e) => { e.stopPropagation(); if (selectModeRef.current) return; const timer = setTimeout(() => { setSelectMode(true); selectModeRef.current = true; setSelectedIds(new Set([card.id])); }, 600); const cancel = () => clearTimeout(timer); window.addEventListener('pointerup', cancel, { once: true }); window.addEventListener('pointermove', cancel, { once: true }); }}
+                  aria-label={t.collection.deleteCard}
+                  className="bg-red-600 hover:bg-red-500 text-white rounded-full p-1.5 transition-opacity">
+                  <Trash2 size={16} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(card.id); if (!favorites.includes(card.id)) playFavorite(); }}
+                  aria-label={favorites.includes(card.id) ? t.gacha.favRemove : t.gacha.favAdd}
+                  className={`text-yellow-400 transition-transform hover:scale-125 ${favorites.includes(card.id) ? 'pulse-glow rounded-full' : ''}`}>
+                  <Star size={24} fill={favorites.includes(card.id) ? "currentColor" : "none"} />
+                </button>
+              </div>}
+              {!selectMode && (card.enhance ?? 0) < MAX_ENHANCE && collection.some(c => c.id !== card.id && c.username === card.username) && (
                 <button onClick={(e) => { e.stopPropagation(); setEnhanceTarget(card.id); }}
                   className="absolute -top-3 -left-3 z-20 bg-yellow-500 hover:bg-yellow-400 text-white rounded-full p-1 opacity-100 transition-opacity"
                   title={t.collection.enhance.btn}>
@@ -288,6 +360,7 @@ export default function CollectionPage() {
             </div>
           ))}
         </div>
+        </>
       )}
       {enhanceTarget && (() => {
         const target = collection.find(c => c.id === enhanceTarget);

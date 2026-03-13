@@ -115,10 +115,7 @@ async function fetchFxUser(username: string) {
 }
 
 async function fetchBskyUser(handle: string) {
-  const token = await getBskyToken();
-  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-  const res = await fetch(`https://bsky.social/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(handle)}`, {
-    headers,
+  const res = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(handle)}`, {
     next: { revalidate: 3600 },
   });
   if (!res.ok) return null;

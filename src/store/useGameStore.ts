@@ -237,9 +237,14 @@ export const useGameStore = create<GameStore>()(
         const bonus = streak > 0 && streak % 3 === 0 ? 1 : 0;
         const today = new Date().toDateString();
         const currentBonus = s.bonusPackDate === today ? s.bonusPacks : 0;
+        const todayPackCount = s.packDate === today ? s.packCount : 0;
+        const todayUsed = s.usedBonusDate === today ? s.usedBonusPacks : 0;
+        const DAILY_LIMIT = 10;
+        const remaining = Math.max(0, DAILY_LIMIT - todayPackCount) + Math.max(0, currentBonus - todayUsed);
+        const canAdd = remaining < 10; // ボーナス上限10パックまで
         return {
           battleHistory: newHistory.slice(-20),
-          ...(bonus > 0 ? { bonusPacks: currentBonus + bonus, bonusPackDate: today } : {}),
+          ...(bonus > 0 && canAdd ? { bonusPacks: currentBonus + bonus, bonusPackDate: today } : {}),
         };
       }),
       teamBattleHistory: [],
