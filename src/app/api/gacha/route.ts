@@ -162,7 +162,40 @@ async function fetchRandomBskyUsers(count: number) {
     .slice(0, count);
 }
 
-// ピックアップガチャ用
+async function fetchPickupMisskeyUsers(query: string, count: number) {
+  try {
+    const res = await fetch(`${MISSKEY_BASE}/api/notes/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, limit: count * 4 }),
+      next: { revalidate: 0 },
+    });
+    if (!res.ok) return [];
+    const notes = await res.json();
+    if (!Array.isArray(notes)) return [];
+    const seen = new Set<string>();
+    const users: { username: string; host: string | null }[] = [];
+    for (const note of notes) {
+      const u = note?.user;
+      if (!u?.username) continue;
+      const key = `${u.username}@${u.host ?? "misskey.io"}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      users.push({ username: u.username, host: u.host ?? null });
+    }
+    const details = await Promise.all(users.slice(0, count).map(u =>
+      fetch(`${MISSKEY_BASE}/api/users/show`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: u.username, host: u.host || undefined }),
+        next: { revalidate: 0 },
+      }).then(r => r.ok ? r.json() : null).catch(() => null)
+    ));
+    return details.filter(Boolean);
+  } catch { return []; }
+}
+
+
 function sanitizeQuery(q: string) {
   return q
     .replace(/id:\S+/gi, '')
@@ -200,6 +233,94 @@ async function fetchPickupUsernames(query: string): Promise<string[]> {
   return (data?.timeline?.entry ?? []).map((e: { screenName?: string }) => e.screenName).filter((n: string | undefined): n is string => !!n);
 }
 
+async function fetchRandomMisskeyUsers(count: number) {
+  try {
+    const res = await fetch(`${MISSKEY_BASE}/api/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ limit: count * 4 }),
+      next: { revalidate: 0 },
+    });
+    if (!res.ok) return [];
+    const notes = await res.json();
+    if (!Array.isArray(notes)) return [];
+    const seen = new Set<string>();
+    const users = [];
+    for (const note of notes) {
+      const u = note?.user;
+      if (!u?.username) continue;
+      const key = `${u.username}@${u.host ?? "misskey.io"}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      users.push(u);
+      if (users.length >= count * 2) break;
+    }
+    const details = await Promise.all(users.slice(0, count).map(u =>
+      fetch(`${MISSKEY_BASE}/api/users/show`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: u.username, host: u.host || undefined }),
+        next: { revalidate: 0 },
+      }).then(r => r.ok ? r.json() : null).catch(() => null)
+    ));
+    return details.filter(Boolean);
+  } catch { return []; }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildMisskeyCard(u: any) {
+  const host = u.host ?? "misskey.io";
+  const fieldsCount = (u.fields ?? []).length;
+  const rolesCount = (u.roles ?? []).length;
+  const card = buildCard({
+    id: `msky_${u.id}`,
+    screen_name: u.host ? `${u.username}@${host}` : u.username,
+    name: u.name || u.username,
+    avatar: u.avatarUrl ?? "",
+    description: u.description ?? "",
+    followers: u.followersCount ?? 0,
+    following: u.followingCount ?? 0,
+    statuses: u.notesCount ?? 0,
+    likes: 0,
+    media_count: fieldsCount * 100, // fieldsをmedia_countに流用してDEFに反映
+    joined: u.birthday ?? u.createdAt ?? "", // birthdayを誕生日判定に使用
+    verified: (u.badgeRoles ?? []).some((r: { name: string }) => r.name === "Verified"),
+    location: u.location || undefined,
+  });
+  // isCat → LUK+200, isBot → ATK+150, isLocked → DEF+150, onlineStatus=online/active → SPD+100/50, roles → LUK+50each
+  const lukBonus = (u.isCat ? 200 : 0) + rolesCount * 50
+    + (u.followersVisibility === "public" && u.followingVisibility === "public" ? 80 : 0)
+    + ((u.followersCount ?? 0) > (u.followingCount ?? 0) * 10 ? 150 : 0)
+    + (u.verifiedLinks ?? []).length * 50;
+  const atkBonus = (u.isBot ? 150 : 0) + ((u.alsoKnownAs ?? []).length > 0 ? 100 : 0)
+    + (u.isBot && (u.notesCount ?? 0) > 10000 ? 200 : 0)
+    + ((u.notesCount ?? 0) > (u.followersCount ?? 0) ? 100 : 0);
+  const defBonus = (u.isLocked ? 150 : 0) + (u.pinnedNoteIds ?? []).length * 30
+    + (u.bannerUrl ? 80 : 0)
+    + ((u.followingCount ?? 0) === 0 ? 120 : 0);
+  const spdBonus = (u.onlineStatus === "online" ? 100 : u.onlineStatus === "active" ? 50 : 0)
+    + (u.updatedAt && (Date.now() - new Date(u.updatedAt).getTime()) < 7 * 86400000 ? 80 : 0);
+  const intBonus = (u.publicReactions ? 100 : 0) + (u.mutualLinkSections ?? []).length * 40;
+  const hpBonus = new Date(u.createdAt ?? "").getFullYear() <= 2017 ? 200 : 0;
+  const ghostMultiplier = (u.followersCount ?? 0) === 0 ? 0.5 : 1;
+  const movedPenalty = u.movedTo ? 200 : 0;
+  const silencePenalty = u.isSilenced ? 100 : 0;
+  const limitedSpdPenalty = u.isLimited ? 100 : 0;
+  const chatDefBonus = u.chatScope === "mutual" ? 50 : 0;
+  return {
+    ...card,
+    luk: Math.min(Math.max(0, Math.round((card.luk + lukBonus - movedPenalty - silencePenalty) * ghostMultiplier)), 9999),
+    atk: Math.min(Math.max(0, Math.round((card.atk + atkBonus - movedPenalty - silencePenalty) * ghostMultiplier)), 9999),
+    def: Math.min(Math.max(0, Math.round((card.def + defBonus + chatDefBonus - movedPenalty - silencePenalty) * ghostMultiplier)), 9999),
+    spd: Math.min(Math.max(0, Math.round((card.spd + spdBonus - movedPenalty - silencePenalty - limitedSpdPenalty) * ghostMultiplier)), 9999),
+    int: Math.min(Math.max(0, Math.round((card.int + intBonus - movedPenalty - silencePenalty) * ghostMultiplier)), 9999),
+    hp:  Math.min(Math.max(0, Math.round((card.hp + hpBonus - movedPenalty - silencePenalty) * ghostMultiplier)), 9999),
+    platform: "misskey",
+  };
+}
+
+const MISSKEY_BASE = "https://misskey.io";
+
 function shuffle<T>(arr: T[]): T[] {
   return arr.sort(() => Math.random() - 0.5);
 }
@@ -224,9 +345,10 @@ export async function GET(req: Request) {
   // ピックアップガチャ
   if (query) {
     try {
-      const [usernames, bskyUsers] = await Promise.all([
+      const [usernames, bskyUsers, misskeyUsers] = await Promise.all([
         fetchPickupUsernames(query),
-        fetchPickupBskyUsers(query, Math.ceil(count / 2)),
+        fetchPickupBskyUsers(query, Math.ceil(count / 3)),
+        fetchPickupMisskeyUsers(query, Math.ceil(count / 3)),
       ]);
       const twitterCards = await Promise.all(
         shuffle([...new Set(usernames)]).slice(0, count).map(fetchFxUser)
@@ -242,7 +364,7 @@ export async function GET(req: Request) {
         username_changes: user.about_account?.username_changes?.count ?? 0,
         location: user.location || undefined, website: user.website?.url || user.website || undefined,
       })));
-      const cards = shuffle([...twitterCards, ...bskyUsers.map(buildBskyCard)]).slice(0, count);
+      const cards = shuffle([...twitterCards, ...bskyUsers.map(buildBskyCard), ...misskeyUsers.map(buildMisskeyCard)]).slice(0, count);
       if (!cards.length) return NextResponse.json({ error: "カードを取得できませんでした" }, { status: 404 });
       return NextResponse.json(cards);
     } catch (e) {
@@ -254,6 +376,18 @@ export async function GET(req: Request) {
 
   if (username) {
     try {
+      // Misskey: user@instance 形式
+      if (username.includes("@")) {
+        const [mUser, mHost] = username.split("@");
+        const u = await fetch(`${MISSKEY_BASE}/api/users/show`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: mUser, host: mHost || undefined }),
+          next: { revalidate: 0 },
+        }).then(r => r.ok ? r.json() : null).catch(() => null);
+        if (!u) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
+        return NextResponse.json(buildMisskeyCard(u));
+      }
       if (isBsky) {
         const u = await fetchBskyUser(username);
         if (!u) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
@@ -287,10 +421,11 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Twitter と Bsky を並列取得してシャッフル
-    const [usernames, bskyUsers] = await Promise.all([
+    // Twitter・Bsky・Misskeyを並列取得してシャッフル
+    const [usernames, bskyUsers, misskeyUsers] = await Promise.all([
       fetchUsernames(),
-      fetchRandomBskyUsers(Math.ceil(count / 2)),
+      fetchRandomBskyUsers(Math.ceil(count / 3)),
+      fetchRandomMisskeyUsers(Math.ceil(count / 3)),
     ]);
 
     const twitterCards = await Promise.all(
@@ -315,7 +450,8 @@ export async function GET(req: Request) {
     })));
 
     const bskyCards = bskyUsers.map(buildBskyCard);
-    const cards = shuffle([...twitterCards, ...bskyCards]).slice(0, count);
+    const misskeyCards = misskeyUsers.map(buildMisskeyCard);
+    const cards = shuffle([...twitterCards, ...bskyCards, ...misskeyCards]).slice(0, count);
 
     if (!cards.length) {
       return NextResponse.json({ error: "カードを取得できませんでした" }, { status: 404 });

@@ -27,7 +27,7 @@ export default function TcgCard({ card, size = "md", onClick, selected }: Props)
 
   return (
     <div
-      onClick={() => { if (onClick === undefined) return; const url = card.username.includes('.') ? `https://bsky.app/profile/${card.username}` : `https://twitter.com/${card.username}`; window.open(url, '_blank', 'noopener,noreferrer'); onClick(); }}
+      onClick={() => { if (onClick === undefined) return; const isMisskey = card.id?.startsWith('msky_') || card.username.includes('@'); const isBsky = !isMisskey && card.username.includes('.'); const url = isMisskey ? `https://${card.username.includes('@') ? card.username.split('@')[1] : 'misskey.io'}/@${card.username.split('@')[0]}` : isBsky ? `https://bsky.app/profile/${card.username}` : `https://twitter.com/${card.username}`; window.open(url, '_blank', 'noopener,noreferrer'); onClick(); }}
       className={`
         ${s.wrap} relative flex flex-col rounded-xl cursor-pointer select-none
         bg-gradient-to-b ${gradient}
