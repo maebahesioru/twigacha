@@ -15,7 +15,7 @@ interface Props {
   raidHistory: RaidHistoryEntry[];
   raidBossCard: TwitterCard | null;
   raidBossMaxHp: number;
-  setView: (v: 'rarity' | 'team' | 'result' | 'battle' | 'online' | 'raid' | 'select' | 'menu' | 'raid-battle' | 'raid-result' | 'vs-id' | 'replay') => void;
+  setView: (v: 'rarity' | 'team' | 'result' | 'battle' | 'online' | 'raid' | 'select' | 'menu' | 'raid-battle' | 'raid-result' | 'vs-id' | 'replay' | 'quest') => void;
   setSelectFor: (v: 'battle'|'online') => void;
   setPlayerCard: (c: TwitterCard | null) => void;
   setEnemyCard: (c: TwitterCard | null) => void;
@@ -83,6 +83,11 @@ export function BattleMenuView({ t, collection, battleHistory, raidHistory, raid
           className="ripple-btn flex-1 py-4 bg-gradient-to-r from-violet-600 to-purple-600 rounded-2xl font-bold text-lg hover:opacity-90 transition shadow-lg shadow-violet-500/30 text-left px-5">
           <div className="flex items-center gap-2 mb-1">{t.battle.online}</div>
           <div className="text-xs text-violet-100 font-normal opacity-90">{t.battle.onlineDesc}</div>
+        </button>
+        <button onClick={() => setView('quest')}
+          className="ripple-btn flex-1 py-4 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-2xl font-bold text-lg hover:opacity-90 transition shadow-lg shadow-yellow-500/30 text-left px-5">
+          <div className="flex items-center gap-2 mb-1">{t.battle.quest.title}</div>
+          <div className="text-xs text-yellow-100 font-normal opacity-90">{t.battle.quest.stages[0].condition} ...</div>
         </button>
       </div>
       <p className="text-gray-600 text-sm">{t.common.cards(collection.length)}</p>

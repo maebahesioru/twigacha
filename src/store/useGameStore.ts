@@ -36,6 +36,10 @@ interface GameStore {
   quest311Date: string;
   quest311Rewarded: boolean;
   claimQuest311: () => void;
+  questCleared: number[]; // cleared stage indices
+  questBestStreak: number; // endless best streak
+  claimQuestReward: (stageIdx: number, reward: number) => void;
+  setQuestBestStreak: (n: number) => void;
   birthdayBonusDate: string;
   birthdayBonusCount: number;
   claimBirthdayBonus: () => boolean; // returns true if bonus given
@@ -180,6 +184,18 @@ export const useGameStore = create<GameStore>()(
         const current = bonusPackDate === today ? bonusPacks : 0;
         set({ quest311Date: today, quest311Rewarded: true, bonusPacks: current + 10, bonusPackDate: today });
       },
+      questCleared: [],
+      questBestStreak: 0,
+      claimQuestReward: (stageIdx, reward) => set(s => {
+        const today = new Date().toDateString();
+        const current = s.bonusPackDate === today ? s.bonusPacks : 0;
+        return {
+          questCleared: s.questCleared.includes(stageIdx) ? s.questCleared : [...s.questCleared, stageIdx],
+          bonusPacks: current + reward,
+          bonusPackDate: today,
+        };
+      }),
+      setQuestBestStreak: (n) => set(s => ({ questBestStreak: Math.max(s.questBestStreak, n) })),
       birthdayBonusDate: "",
       birthdayBonusCount: 0,
       claimBirthdayBonus: () => {

@@ -12,6 +12,7 @@ import { VsIdScreen } from "./VsIdScreen";
 import { OnlineBattleView } from "./OnlineViews";
 import { TeamBattleView } from "./TeamBattleView";
 import { RaidViews } from "./RaidViews";
+import QuestView, { getStageFilters, normalizeEnemy, STAGE_ENEMY_SCALE } from "./QuestView";
 import { BattleMenuView } from "./BattleMenuView";
 import { playAttack, playVictory, playDefeat, playRaidHit, playHit } from "@/lib/audio";
 import Confetti from "@/components/Confetti";
@@ -21,7 +22,8 @@ function BattlePageInner() {
     raidDate, raidBossMaxHp, raidBossHp, raidBossCard, raidCleared, raidDeck, raidUsedCards,
     setRaidDeck, damageRaidBoss, addRaidUsedCards, initRaid, clearRaid, incrementRaidClearCount, raidHistory, addRaidHistory,
     teamBattleHistory, addTeamBattleResult, savedTeam, setSavedTeam, savedDecks, savedeck, deleteDeck,
-    battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard, markRaidMission, claimBirthdayBonus, markShare } = useGameStore();
+    battleSpeed, setBattleSpeed, battleSort, setBattleSort, updateCard, markRaidMission, claimBirthdayBonus, markShare,
+    questCleared, questBestStreak, claimQuestReward, setQuestBestStreak, favorites } = useGameStore();
   const [localSpeed, setLocalSpeed] = useState(battleSpeed);
   const battleSpeedRef = useRef(localSpeed);
   useEffect(() => { battleSpeedRef.current = localSpeed; setBattleSpeed(localSpeed); }, [localSpeed]);
@@ -29,7 +31,7 @@ function BattlePageInner() {
   const t = useT();
   const searchParams = useSearchParams();
   const initialCode = searchParams.get('code') ?? '';
-  const [view, setView] = useState<'menu' | 'select' | 'rarity' | 'battle' | 'result' | 'raid' | 'raid-battle' | 'raid-result' | 'vs-id' | 'team' | 'online' | 'replay'>('menu');
+  const [view, setView] = useState<'menu' | 'select' | 'rarity' | 'battle' | 'result' | 'raid' | 'raid-battle' | 'raid-result' | 'vs-id' | 'team' | 'online' | 'replay' | 'quest'>('menu');
   const [kyu, setKyu] = useState<Kyu>("R");
   const [search, setSearch] = useState("");
   const [rarityFilter, setRarityFilter] = useState<"ALL"|"LR"|"UR"|"SSR"|"SR"|"R"|"N"|"C">("ALL");
@@ -58,7 +60,7 @@ function BattlePageInner() {
   const [repeatCount, setRepeatCount] = useState(0);
   const [replayIdx, setReplayIdx] = useState(0);
   const [replayCards, setReplayCards] = useState<{p: import("@/types").TwitterCard; e: import("@/types").TwitterCard; hpSnaps: {pHp:number;eHp:number}[]} | null>(null);
-  const [replayFrom, setReplayFrom] = useState<'rarity' | 'team' | 'result' | 'battle' | 'online' | 'raid' | 'select' | 'menu' | 'raid-battle' | 'raid-result' | 'vs-id' | 'replay'>('menu');
+  const [replayFrom, setReplayFrom] = useState<'rarity' | 'team' | 'result' | 'battle' | 'online' | 'raid' | 'select' | 'menu' | 'raid-battle' | 'raid-result' | 'vs-id' | 'replay' | 'quest'>('menu');
   const [replayRaidSnaps, setReplayRaidSnaps] = useState<{ cardIdx: number; card: import("@/types").TwitterCard; cardHp: number; bossHp: number }[] | null>(null);
   const [replayBossCard, setReplayBossCard] = useState<import("@/types").TwitterCard | null>(null);
   const [replayBossMaxHp, setReplayBossMaxHp] = useState(0);
@@ -76,6 +78,8 @@ function BattlePageInner() {
   const [pHpLive, setPHpLive] = useState(0);
   const [eHpLive, setEHpLive] = useState(0);
   const [selectMode, setSelectMode] = useState<"player" | "enemy" | null>(null);
+  const [questStageIdx, setQuestStageIdx] = useState<number | null>(null);
+  const [questStreak, setQuestStreak] = useState(0);
 
   // レイド用state
   const [raidLog, setRaidLog] = useState<string[]>([]);
@@ -297,7 +301,23 @@ function BattlePageInner() {
     return () => clearTimeout(timer);
   }, [view, replayIdx, replayRaidSnaps, replayCards, replayBossMaxHp, localSpeed]);
 
-  // レイドバトル開始
+  // quest result side effects
+  useEffect(() => {
+    if (view !== 'result' || !result || questStageIdx === null) return;
+    const q = t.battle.quest;
+    const questStage = q.stages[questStageIdx];
+    const win = result.winner === 'player';
+    if (win) {
+      const newStreak = questStreak + 1;
+      setQuestStreak(newStreak);
+      if (questStage.wins > 0 && newStreak >= questStage.wins && !questCleared.includes(questStageIdx)) {
+        claimQuestReward(questStageIdx, questStage.reward);
+      }
+    } else if (questStage.wins === 0) {
+      setQuestBestStreak(questStreak);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, result]);
   const startRaidBattle = useCallback(async () => {
     if (raidRunning || raidDeck.length === 0 || !raidBossCard) return;
     setRaidRunning(true);
@@ -386,16 +406,24 @@ function BattlePageInner() {
 
   // カード選択画面
   if (view === 'select') {
+    const q = t.battle.quest;
+    const questStage = questStageIdx !== null ? q.stages[questStageIdx] : null;
+    const stageFilters = questStageIdx !== null ? getStageFilters(collection, favorites, questCleared) : null;
+    const questFilter = stageFilters && questStageIdx !== null ? stageFilters[questStageIdx] : null;
     const filtered = sortBattle(collection.filter(c =>
+      (questFilter ? questFilter(c) : true) &&
       (rarityFilter === "ALL" || c.rarity === rarityFilter) &&
       (!search || c.username.includes(search) || c.displayName.includes(search))
     ));
     return (
       <div className="min-h-dvh bg-gray-950 text-white py-10 px-4">
         <div className="flex items-center gap-4 mb-6 justify-center">
-          <button onClick={() => setView('menu')} className="text-gray-400 hover:text-white transition text-sm">{ t.battle.back}</button>
-          <h1 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">{ t.battle.selectTitle}</h1>
+          <button onClick={() => questStageIdx !== null ? setView('quest') : setView('menu')} className="text-gray-400 hover:text-white transition text-sm">{ t.battle.back}</button>
+          <h1 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
+            {questStage ? questStage.title : t.battle.selectTitle}
+          </h1>
         </div>
+        {questStage && <p className="text-center text-sm text-gray-400 mb-4">{q.condition}: {questStage.condition}</p>}
 
         <div className="flex flex-wrap gap-2 justify-center items-center mb-2">
           <span className="text-gray-400 text-sm font-bold">{ t.collection.sort}</span>
@@ -413,7 +441,18 @@ function BattlePageInner() {
         </div>
 
         <div className="flex justify-center gap-3 mb-4 flex-wrap">
-          {selectFor === 'battle' ? (<>
+          {questStageIdx !== null ? (
+            <button disabled={!playerCard} onClick={async () => {
+              if (!playerCard || questStageIdx === null) return;
+              setLog([]); setResult(null); setEnemyCard(null); setView('battle');
+              const res = await fetch("/api/gacha?count=1");
+              const data = await res.json();
+              const raw: TwitterCard = Array.isArray(data) ? data[0] : data;
+              if (raw && !(raw as { error?: string }).error) setEnemyCard(normalizeEnemy(raw, STAGE_ENEMY_SCALE[questStageIdx]));
+            }} className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl font-bold text-lg hover:opacity-90 disabled:opacity-40 transition">
+              {t.battle.startBattle}
+            </button>
+          ) : selectFor === 'battle' ? (<>
           <button
             disabled={!playerCard}
             onClick={() => setView('rarity')}
@@ -627,6 +666,12 @@ function BattlePageInner() {
   // リザルト画面
   if (view === 'result' && result && playerCard && enemyCard) {
     const win = result.winner === 'player';
+    const q = t.battle.quest;
+    // quest mode
+    const questStage = questStageIdx !== null ? q.stages[questStageIdx] : null;
+    const isQuestEndless = questStage?.wins === 0;
+    const questCleared2 = questStage && questStage.wins > 0 && questStreak >= questStage.wins;
+
     // 現在の連勝数（カードのレアリティ以上の級での勝利のみ）
     const KYU_ORDER = ["C","N","R","SR","SSR","UR","LR"];
     let curStreak = 0;
@@ -661,7 +706,15 @@ function BattlePageInner() {
         <div className={`text-3xl sm:text-5xl font-black ${win ? "text-yellow-400" : "text-red-400"}`}>
           {win ? `🏆 ${t.battle.result.win}！` : `💀 ${t.battle.result.lose}`}
         </div>
-        {streakBonusTriggered && (
+        {questStage && (
+          <div className="text-center">
+            <p className="text-yellow-400 font-bold">{questStage.title}</p>
+            {win && !questCleared2 && <p className="text-green-400 text-sm">{questStreak}連勝中{questStage.wins > 0 ? ` (あと${questStage.wins - questStreak}勝)` : ""}</p>}
+            {win && questCleared2 && <p className="text-yellow-400 font-bold animate-pulse">✅ クリア！ +{questStage.reward}パック</p>}
+            {!win && isQuestEndless && <p className="text-gray-400 text-sm">{questStreak}連勝 / 最高{questBestStreak}連勝</p>}
+          </div>
+        )}
+        {!questStage && streakBonusTriggered && (
           <div className="bg-orange-500/20 border border-orange-400/50 rounded-xl px-4 py-2 text-orange-300 font-bold text-sm animate-pulse">
             {t.battle.streakBonus(curStreak)}
           </div>
@@ -701,6 +754,32 @@ function BattlePageInner() {
           </details>
         )}
 
+        {/* アクションボタン */}
+        {questStage ? (
+          <div className="flex gap-3 flex-wrap justify-center w-full max-w-2xl">
+            {win && !questCleared2 && (
+              <button onClick={async () => {
+                if (!playerCard || questStageIdx === null) return;
+                setLog([]); setResult(null); setEnemyCard(null); setView('battle');
+                const res = await fetch("/api/gacha?count=1");
+                const data = await res.json();
+                const raw: TwitterCard = Array.isArray(data) ? data[0] : data;
+                if (raw && !(raw as { error?: string }).error) setEnemyCard(normalizeEnemy(raw, STAGE_ENEMY_SCALE[questStageIdx]));
+              }} className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl font-bold hover:opacity-90 transition">
+                次の敵へ
+              </button>
+            )}
+            <button onClick={() => { setQuestStreak(0); setLog([]); setResult(null); setEnemyCard(null); setView('select'); }}
+              className="px-6 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition">
+              {win ? t.battle.result.changeCard : "再挑戦"}
+            </button>
+            <button onClick={() => { setQuestStageIdx(null); setQuestStreak(0); setLog([]); setResult(null); setEnemyCard(null); setView('quest'); }}
+              className="px-6 py-3 bg-gray-800 rounded-xl font-bold hover:bg-gray-700 transition text-gray-400">
+              {q.back}
+            </button>
+          </div>
+        ) : (
+        <>
         {/* 周回モード */}
         <div className="flex items-center gap-3 w-full max-w-2xl">
           <button
@@ -711,8 +790,6 @@ function BattlePageInner() {
           </button>
           {repeatCount > 0 && <span className="text-gray-400 text-sm">{t.battle.autoRepeatCount(repeatCount)}</span>}
         </div>
-
-        {/* アクションボタン */}
         <div className="grid grid-cols-3 gap-2 w-full max-w-2xl">
           <button onClick={() => navigator.clipboard.writeText(copyText)}
             className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-blue-700 rounded-xl font-bold hover:bg-blue-600 transition">{ t.battle.result.copyBtn}</button>
@@ -733,6 +810,8 @@ function BattlePageInner() {
           <button onClick={() => setView('menu')}
             className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-gray-800 rounded-xl font-bold hover:bg-gray-700 transition text-gray-400">{ t.battle.result.menu}</button>
         </div>
+        </>
+        )}
       </div>
       </>
     );
@@ -795,6 +874,25 @@ function BattlePageInner() {
       savedeck={savedeck}
       deleteDeck={deleteDeck}
     />;
+  }
+
+  if (view === 'quest') {
+    return <QuestView collection={collection} onBack={() => { setQuestStageIdx(null); setView('menu'); }} onSelectStage={async (idx) => {
+      setQuestStageIdx(idx); setQuestStreak(0); setLog([]); setResult(null);
+      // 第50章: ランダム1枚で即バトル
+      const isFinal = t.battle.quest.stages[idx]?.wins === 10 && idx === 50;
+      const isSolo = idx === 54; // 第55章: 一騎当千
+      if ((isFinal || isSolo) && collection.length > 0) {
+        const rand = collection[Math.floor(Math.random() * collection.length)];
+        setPlayerCard(rand); setEnemyCard(null); setView('battle');
+        const res = await fetch("/api/gacha?count=1");
+        const data = await res.json();
+        const raw: TwitterCard = Array.isArray(data) ? data[0] : data;
+        if (raw && !(raw as { error?: string }).error) setEnemyCard(normalizeEnemy(raw, STAGE_ENEMY_SCALE[idx]));
+      } else {
+        setPlayerCard(null); setEnemyCard(null); setView('select');
+      }
+    }} />;
   }
 
   return (
