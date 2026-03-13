@@ -14,8 +14,10 @@ import { TeamBattleView } from "./TeamBattleView";
 import { RaidViews } from "./RaidViews";
 import QuestView, { getStageFilters, normalizeEnemy, STAGE_ENEMY_SCALE } from "./QuestView";
 import { BattleMenuView } from "./BattleMenuView";
+import { BattleView } from "./BattleView";
+import { ReplayView } from "./ReplayView";
+import { ResultView } from "./ResultView";
 import { playAttack, playVictory, playDefeat, playRaidHit, playHit } from "@/lib/audio";
-import Confetti from "@/components/Confetti";
 
 function BattlePageInner() {
   const { collection, markBattle, addBattleResult, battleHistory,
@@ -242,64 +244,13 @@ function BattlePageInner() {
     }
   }, [view, result]);
 
-  // リプレイ自動再生
-  useEffect(() => {
-    if (view !== 'replay' || !replayCards) return;
-    if (replayIdx >= replayCards.hpSnaps.length) {
-      // ラウンド終了 → 次のラウンドへ自動進行
-      if (replayRounds && replayRoundIdx + 1 < replayRounds.length) {
-        const timer = setTimeout(() => {
-          const next = replayRounds[replayRoundIdx + 1];
-          setLog(next.log);
-          setReplayCards(next);
-          setReplayPHp(next.p.hp);
-          setReplayEHp(next.e.hp);
-          setReplayIdx(0);
-          setReplayRoundIdx(i => i + 1);
-        }, 1500);
-        return () => clearTimeout(timer);
-      }
-      return;
-    }
-    const timer = setTimeout(() => {
-      const snap = replayCards.hpSnaps[replayIdx];
-      const prevP = replayIdx === 0 ? replayCards.p.hp : replayCards.hpSnaps[replayIdx - 1].pHp;
-      const prevE = replayIdx === 0 ? replayCards.e.hp : replayCards.hpSnaps[replayIdx - 1].eHp;
-      if (snap.eHp < prevE) { setReplayShake('enemy'); setTimeout(() => setReplayShake(null), 400); setReplayHpFlash('enemy'); setTimeout(() => setReplayHpFlash(null), 300); setReplayDmgPop({ side: 'enemy', val: prevE - snap.eHp, key: Date.now() }); playAttack(); }
-      if (snap.pHp < prevP) { setReplayShake('player'); setTimeout(() => setReplayShake(null), 400); setReplayHpFlash('player'); setTimeout(() => setReplayHpFlash(null), 300); setReplayDmgPop({ side: 'player', val: prevP - snap.pHp, key: Date.now() + 1 }); }
-      setReplayPHp(snap.pHp);
-      setReplayEHp(snap.eHp);
-      setReplayIdx(i => i + 1);
-      if (replayIdx + 1 >= replayCards.hpSnaps.length) {
-        const lastSnap = replayCards.hpSnaps[replayCards.hpSnaps.length - 1];
-        lastSnap.pHp > 0 ? playVictory() : playDefeat();
-      }
-    }, localSpeed);
-    return () => clearTimeout(timer);
-  }, [view, replayIdx, replayCards, replayRounds, replayRoundIdx, localSpeed]);
+  // リプレイ自動再生はReplayView内で処理
 
   useEffect(() => {
     if (view === 'raid') loadRaidBoss();
   }, [view]);
 
-  // レイドリプレイ自動再生
-  useEffect(() => {
-    if (view !== 'replay' || !replayRaidSnaps || replayCards) return;
-    if (replayIdx >= replayRaidSnaps.length) return;
-    const timer = setTimeout(() => {
-      const snap = replayRaidSnaps[replayIdx];
-      const prev = replayRaidSnaps[replayIdx - 1];
-      setReplayRaidCard(snap.card);
-      setReplayRaidCardHp(snap.cardHp);
-      setReplayRaidBossHp(snap.bossHp);
-      if (snap.bossHp < (prev?.bossHp ?? replayBossMaxHp)) playRaidHit();       // カード→ボス攻撃
-      if (snap.cardHp < (prev?.cardHp ?? snap.card.hp)) playAttack();            // ボス→カード攻撃
-      const done = replayIdx + 1 >= replayRaidSnaps.length;
-      if (done) { snap.bossHp <= 0 ? playVictory() : playDefeat(); }
-      setReplayIdx(i => i + 1);
-    }, localSpeed);
-    return () => clearTimeout(timer);
-  }, [view, replayIdx, replayRaidSnaps, replayCards, replayBossMaxHp, localSpeed]);
+  // レイドリプレイ自動再生はReplayView内で処理
 
   // quest result side effects
   useEffect(() => {
@@ -504,124 +455,21 @@ function BattlePageInner() {
 
   // リプレイ画面
   if (view === 'replay') {
-    // レイドsnapsあり → バトル画面再現
-    if (!replayCards && replayRaidSnaps && replayBossCard) {
-      const done = replayIdx >= replayRaidSnaps.length;
-      const replayLog = done ? log : log.slice(0, Math.max(1, Math.floor(replayIdx * log.length / replayRaidSnaps.length)));
-      return (
-        <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center px-4 py-6 gap-4 slide-in-up">
-          <div className="flex items-center justify-between w-full max-w-2xl">
-            <button onClick={() => setView(replayFrom)} className="text-gray-400 hover:text-white text-sm">{t.battle.back}</button>
-            <h1 className="text-xl font-black text-yellow-400">{t.battle.replay.title}</h1>
-            <span className="text-xs text-gray-500">{replayIdx}/{replayRaidSnaps.length}</span>
-          </div>
-          <div className="flex justify-center items-start gap-4 sm:gap-8 flex-wrap">
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-sm text-blue-400 font-bold">{replayRaidCard?.displayName ?? '...'}</span>
-              {replayRaidCard && <TcgCard card={replayRaidCard} size="lg" />}
-              <div className="w-full max-w-[16rem]">
-                <div className="flex justify-between text-xs mb-1"><span className="text-gray-400">HP</span><span className="text-white">{replayRaidCardHp} / {replayRaidCard?.hp ?? 0}</span></div>
-                <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${replayRaidCard ? Math.max(0, replayRaidCardHp / replayRaidCard.hp * 100) : 100}%` }} />
-                </div>
-              </div>
-            </div>
-            <div className="text-2xl sm:text-4xl font-black text-gray-600 sm:mt-20">VS</div>
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-sm text-red-400 font-bold">{t.battle.raid.boss}</span>
-              <TcgCard card={replayBossCard} size="lg" />
-              <div className="w-full max-w-[16rem]">
-                <div className="flex justify-between text-xs mb-1"><span className="text-gray-400">{t.battle.raid.bossHp}</span><span className="text-orange-400 font-bold">{replayRaidBossHp.toLocaleString()} / {replayBossMaxHp.toLocaleString()}</span></div>
-                <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-500" style={{ width: `${Math.max(0, replayRaidBossHp / replayBossMaxHp * 100)}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-          {done && <div className="text-yellow-400 font-bold">{t.battle.replay.done}</div>}
-          <div className="flex items-center gap-3 text-sm justify-center">
-            <span className="text-gray-400">{t.battle.speed}</span>
-            <span className="text-xs text-gray-500">{t.battle.slow}</span>
-            <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} defaultValue={1300 - localSpeed}
-        onInput={e => setLocalSpeed(1300 - Number((e.target as HTMLInputElement).value))} className="w-32 accent-pink-500" />
-            <span className="text-xs text-gray-500">{t.battle.fast}</span>
-    </div>
-          {replayLog.length > 0 && (
-            <div className="max-w-lg w-full bg-gray-900 rounded-xl p-4 space-y-1 max-h-40 overflow-y-auto">
-              {replayLog.map((l, i) => <p key={i} className={`text-sm ${l.startsWith("━━") ? "text-orange-400 font-bold" : l.includes("defeated") ? "text-red-400" : "text-gray-300"}`}>{l}</p>)}
-            </div>
-          )}
-          <button onClick={() => setView(replayFrom)} className="px-6 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition">{t.battle.back}</button>
-        </div>
-      );
-    }
-    // ログのみ表示（snapsなし）
-    if (!replayCards) return (
-      <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center gap-4 px-4 py-10 slide-in-up">
-        <h2 className="text-2xl font-black text-yellow-400">{t.battle.replay.title}</h2>
-        <div className="w-full max-w-2xl bg-gray-800/80 rounded-2xl p-4 space-y-1 text-xs font-mono text-gray-300 max-h-[70vh] overflow-y-auto">
-          {log.map((l, i) => <div key={i} className={l.includes("🏆") ? "text-yellow-400 font-bold" : l.includes("💀") ? "text-red-400 font-bold" : ""}>{l}</div>)}
-        </div>
-        <button onClick={() => setView(replayFrom)} className="px-6 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition">{t.battle.back}</button>
-      </div>
-    );
-    const rp = replayCards.p, re = replayCards.e;
-    const replayLog = replayCards.hpSnaps.length > 0 ? log.slice(0, replayIdx * Math.ceil(log.length / replayCards.hpSnaps.length)) : log;
-    const done = replayIdx >= replayCards.hpSnaps.length;
-    return (
-      <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center px-4 py-6 gap-4 slide-in-up">
-        <div className="flex items-center justify-between w-full max-w-2xl">
-          <button onClick={() => setView(replayFrom)} className="text-gray-400 hover:text-white text-sm">{t.battle.back}</button>
-          <h1 className="text-xl font-black text-yellow-400">{t.battle.replay.title}</h1>
-          <span className="text-xs text-gray-500">{replayRounds ? `R${replayRoundIdx + 1}/${replayRounds.length} ` : ''}{replayIdx}/{replayCards.hpSnaps.length}</span>
-        </div>
-        <div className="flex justify-center items-start gap-4 sm:gap-8 flex-wrap">
-          {/* プレイヤー */}
-          <div className={`flex flex-col items-center gap-2 relative ${replayShake === 'player' ? 'screen-shake' : ''}`}>
-            <span className="text-sm text-blue-400 font-bold">{rp.displayName}</span>
-            <TcgCard card={rp} size="lg" />
-            {replayDmgPop?.side === 'player' && <div key={replayDmgPop.key} className="dmg-pop absolute top-8 left-1/2 -translate-x-1/2 text-2xl font-black text-red-400 pointer-events-none z-10">-{replayDmgPop.val}</div>}
-            <div className="w-full max-w-[16rem]">
-              <div className="flex justify-between text-xs mb-1"><span className="text-gray-400">HP</span><span className="text-white">{replayPHp} / {rp.hp}</span></div>
-              <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-500 ${replayHpFlash === 'player' ? 'hp-flash' : ''}`}
-                  style={{ width: `${Math.max(0, replayPHp / rp.hp * 100)}%`, background: replayPHp / rp.hp < 0.25 ? '#ef4444' : replayPHp / rp.hp < 0.5 ? '#f59e0b' : '#22c55e' }} />
-              </div>
-            </div>
-          </div>
-          <div className="text-2xl sm:text-4xl font-black text-gray-600 sm:mt-20">VS</div>
-          {/* 敵 */}
-          <div className={`flex flex-col items-center gap-2 relative ${replayShake === 'enemy' ? 'screen-shake' : ''}`}>
-            <span className="text-sm text-red-400 font-bold">{re.displayName}</span>
-            <TcgCard card={re} size="lg" />
-            {replayDmgPop?.side === 'enemy' && <div key={replayDmgPop.key} className="dmg-pop absolute top-8 left-1/2 -translate-x-1/2 text-2xl font-black text-red-400 pointer-events-none z-10">-{replayDmgPop.val}</div>}
-            <div className="w-full max-w-[16rem]">
-              <div className="flex justify-between text-xs mb-1"><span className="text-gray-400">HP</span><span className="text-white">{replayEHp} / {re.hp}</span></div>
-              <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-500 ${replayHpFlash === 'enemy' ? 'hp-flash' : ''}`}
-                  style={{ width: `${Math.max(0, replayEHp / re.hp * 100)}%`, background: replayEHp / re.hp < 0.25 ? '#ef4444' : replayEHp / re.hp < 0.5 ? '#f59e0b' : '#22c55e' }} />
-              </div>
-            </div>
-          </div>
-        </div>
-        {done && <div className="text-yellow-400 font-bold">{t.battle.replay.done}</div>}
-        <div className="flex items-center gap-3 text-sm justify-center">
-          <span className="text-gray-400">{t.battle.speed}</span>
-          <span className="text-xs text-gray-500">{t.battle.slow}</span>
-          <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} defaultValue={1300 - localSpeed}
-        onInput={e => setLocalSpeed(1300 - Number((e.target as HTMLInputElement).value))} className="w-32 accent-pink-500" />
-          <span className="text-xs text-gray-500">{t.battle.fast}</span>
-    </div>
-        {/* バトルログ */}
-        {replayLog.length > 0 && (
-          <div className="max-w-lg w-full bg-gray-900 rounded-xl p-4 space-y-1 max-h-40 overflow-y-auto">
-            {replayLog.map((line, i) => (
-              <p key={i} className={`text-sm ${line.includes("🏆") ? "text-yellow-400 font-bold" : line.includes("💀") ? "text-red-400 font-bold" : "text-gray-300"}`}>{line}</p>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+    return <ReplayView
+      replayCards={replayCards} replayRaidSnaps={replayRaidSnaps} replayBossCard={replayBossCard}
+      replayBossMaxHp={replayBossMaxHp} replayIdx={replayIdx} setReplayIdx={setReplayIdx}
+      replayPHp={replayPHp} setReplayPHp={setReplayPHp} replayEHp={replayEHp} setReplayEHp={setReplayEHp}
+      replayRaidCard={replayRaidCard} setReplayRaidCard={setReplayRaidCard}
+      replayRaidCardHp={replayRaidCardHp} setReplayRaidCardHp={setReplayRaidCardHp}
+      replayRaidBossHp={replayRaidBossHp} setReplayRaidBossHp={setReplayRaidBossHp}
+      replayShake={replayShake} setReplayShake={setReplayShake}
+      replayDmgPop={replayDmgPop} setReplayDmgPop={setReplayDmgPop}
+      replayHpFlash={replayHpFlash} setReplayHpFlash={setReplayHpFlash}
+      replayRounds={replayRounds} replayRoundIdx={replayRoundIdx} setReplayRoundIdx={setReplayRoundIdx}
+      setReplayCards={setReplayCards} setReplayPHpDirect={setReplayPHp} setReplayEHpDirect={setReplayEHp}
+      log={log} localSpeed={localSpeed} setLocalSpeed={setLocalSpeed}
+      replayFrom={replayFrom} setView={setView}
+    />;
   }
 
   // ID指定対戦画面
@@ -665,156 +513,25 @@ function BattlePageInner() {
 
   // リザルト画面
   if (view === 'result' && result && playerCard && enemyCard) {
-    const win = result.winner === 'player';
-    const q = t.battle.quest;
-    // quest mode
-    const questStage = questStageIdx !== null ? q.stages[questStageIdx] : null;
-    const isQuestEndless = questStage?.wins === 0;
-    const questCleared2 = questStage && questStage.wins > 0 && questStreak >= questStage.wins;
-
-    // 現在の連勝数（カードのレアリティ以上の級での勝利のみ）
-    const KYU_ORDER = ["C","N","R","SR","SSR","UR","LR"];
-    let curStreak = 0;
-    for (let i = battleHistory.length - 1; i >= 0; i--) {
-      const b = battleHistory[i];
-      const kyuIdx = KYU_ORDER.indexOf(b.kyu);
-      const rarityIdx = KYU_ORDER.indexOf(b.playerCardRarity ?? "C");
-      if (b.winner === 'player' && kyuIdx >= rarityIdx && KYU_ORDER.indexOf(b.enemyCardRarity ?? "C") >= rarityIdx && b.opponentName !== battleHistory[i-1]?.opponentName && (b.mode === 'random' || b.mode === 'team')) curStreak++;
-      else break;
-    }
-    const streakBonusTriggered = win && curStreak > 0 && curStreak % 3 === 0;
-    const copyText = t.battle.result.copyText(playerCard.displayName, enemyCard.displayName, win, kyu, result.ko, result.turns, result.pHp, playerCard.hp, result.eHp, enemyCard.hp, playerCard.atk, playerCard.def, enemyCard.atk, enemyCard.def);
-    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(copyText)}&url=${encodeURIComponent('https://twigacha.vercel.app')}`;
-
-    const HpBar = ({ current, max, isWin }: { current: number; max: number; isWin: boolean }) => (
-      <div className="w-full">
-        <div className="flex justify-between text-xs mb-1">
-          <span className="text-gray-400">HP</span>
-          <span className={isWin ? "text-green-400" : "text-red-400"}>{current} / {max}</span>
-        </div>
-        <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-          <div className={`h-full rounded-full ${isWin ? "bg-green-500" : "bg-red-500"}`}
-            style={{ width: `${Math.max(0, current / max * 100)}%` }} />
-        </div>
-      </div>
-    );
-
-    return (
-      <>
-      {win && <Confetti />}
-      <div className="min-h-dvh bg-gray-950 text-white flex flex-col items-center gap-6 px-4 py-10 slide-in-up">
-        <div className={`text-3xl sm:text-5xl font-black ${win ? "text-yellow-400" : "text-red-400"}`}>
-          {win ? `🏆 ${t.battle.result.win}！` : `💀 ${t.battle.result.lose}`}
-        </div>
-        {questStage && (
-          <div className="text-center">
-            <p className="text-yellow-400 font-bold">{questStage.title}</p>
-            {win && !questCleared2 && <p className="text-green-400 text-sm">{questStreak}連勝中{questStage.wins > 0 ? ` (あと${questStage.wins - questStreak}勝)` : ""}</p>}
-            {win && questCleared2 && <p className="text-yellow-400 font-bold animate-pulse">✅ クリア！ +{questStage.reward}パック</p>}
-            {!win && isQuestEndless && <p className="text-gray-400 text-sm">{questStreak}連勝 / 最高{questBestStreak}連勝</p>}
-          </div>
-        )}
-        {!questStage && streakBonusTriggered && (
-          <div className="bg-orange-500/20 border border-orange-400/50 rounded-xl px-4 py-2 text-orange-300 font-bold text-sm animate-pulse">
-            {t.battle.streakBonus(curStreak)}
-          </div>
-        )}
-
-        {/* カード＋HPバー */}
-        <div className="flex gap-4 sm:gap-8 flex-wrap justify-center items-start">
-          <div className="flex flex-col items-center gap-2 w-52 sm:w-64">
-            <span className="text-sm text-blue-400 font-bold">{ (onlineNames?.my || playerCard?.displayName) ?? t.battle.you}</span>
-            <TcgCard card={playerCard} size="lg" />
-            <HpBar current={result.pHp} max={playerCard.hp} isWin={win} />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-gray-600 sm:mt-20">VS</div>
-          <div className="flex flex-col items-center gap-2 w-52 sm:w-64">
-            <span className="text-sm text-red-400 font-bold">{onlineNames?.opponent ?? enemyCard?.displayName ?? t.battle.enemy(enemyCard?.rarity ?? kyu)}</span>
-            <TcgCard card={enemyCard} size="lg" />
-            <HpBar current={result.eHp} max={enemyCard.hp} isWin={!win} />
-          </div>
-        </div>
-
-        {/* 詳細 */}
-        <div className="bg-gray-800/80 rounded-2xl p-4 w-full max-w-2xl space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-gray-400">{t.battle.result.win}/{t.battle.result.lose}</span><span className={`font-bold ${win ? "text-yellow-400" : "text-red-400"}`}>{win ? t.battle.result.win : t.battle.result.lose}</span></div>
-          <div className="flex justify-between"><span className="text-gray-400">{t.battle.result.decision}</span><span className="font-bold">{result.ko ? t.battle.result.ko : t.battle.result.timeout}</span></div>
-          <div className="flex justify-between"><span className="text-gray-400">{t.battle.result.turns}</span><span className="font-bold">{result.turns}</span></div>
-          <div className="flex justify-between"><span className="text-gray-400">{t.battle.result.kyu}</span><span className="font-bold">{enemyCard.rarity}</span></div>
-          <div className="flex justify-between text-xs"><span className="text-gray-400">{t.battle.result.remainHp}</span><span className="font-bold">{playerCard.displayName} {result.pHp}/{playerCard.hp} | {enemyCard.displayName} {result.eHp}/{enemyCard.hp}</span></div>
-        </div>
-
-        {/* バトルログ */}
-        {log.length > 0 && (
-          <details className="w-full max-w-2xl bg-gray-800/80 rounded-2xl p-4">
-            <summary className="cursor-pointer text-sm text-gray-400 hover:text-white">{t.battle.result.battleLog(log.length)}</summary>
-            <div className="mt-3 space-y-1 max-h-60 overflow-y-auto text-xs text-gray-300 font-mono">
-              {log.map((l, i) => <div key={i}>{l}</div>)}
-            </div>
-          </details>
-        )}
-
-        {/* アクションボタン */}
-        {questStage ? (
-          <div className="flex gap-3 flex-wrap justify-center w-full max-w-2xl">
-            {win && !questCleared2 && (
-              <button onClick={async () => {
-                if (!playerCard || questStageIdx === null) return;
-                setLog([]); setResult(null); setEnemyCard(null); setView('battle');
-                const res = await fetch("/api/gacha?count=1");
-                const data = await res.json();
-                const raw: TwitterCard = Array.isArray(data) ? data[0] : data;
-                if (raw && !(raw as { error?: string }).error) setEnemyCard(normalizeEnemy(raw, STAGE_ENEMY_SCALE[questStageIdx]));
-              }} className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl font-bold hover:opacity-90 transition">
-                次の敵へ
-              </button>
-            )}
-            <button onClick={() => { setQuestStreak(0); setLog([]); setResult(null); setEnemyCard(null); setView('select'); }}
-              className="px-6 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition">
-              {win ? t.battle.result.changeCard : "再挑戦"}
-            </button>
-            <button onClick={() => { setQuestStageIdx(null); setQuestStreak(0); setLog([]); setResult(null); setEnemyCard(null); setView('quest'); }}
-              className="px-6 py-3 bg-gray-800 rounded-xl font-bold hover:bg-gray-700 transition text-gray-400">
-              {q.back}
-            </button>
-          </div>
-        ) : (
-        <>
-        {/* 周回モード */}
-        <div className="flex items-center gap-3 w-full max-w-2xl">
-          <button
-            onClick={() => setAutoRepeat(v => !v)}
-            className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${autoRepeat ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-          >
-            {autoRepeat ? t.battle.autoRepeatOn : t.battle.autoRepeatOff}
-          </button>
-          {repeatCount > 0 && <span className="text-gray-400 text-sm">{t.battle.autoRepeatCount(repeatCount)}</span>}
-        </div>
-        <div className="grid grid-cols-3 gap-2 w-full max-w-2xl">
-          <button onClick={() => navigator.clipboard.writeText(copyText)}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-blue-700 rounded-xl font-bold hover:bg-blue-600 transition">{ t.battle.result.copyBtn}</button>
-          <button onClick={() => { setLog([]); setResult(null); setView('battle'); }}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.rematch}</button>
-          <button onClick={() => { setEnemyCard(null); setLog([]); setResult(null); setView('rarity'); }}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-gray-600 rounded-xl font-bold hover:bg-gray-500 transition">{t.battle.result.changeKyu}</button>
-          <button onClick={() => { window.open(shareUrl, '_blank'); markShare(); }}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-sky-600 rounded-xl font-bold hover:bg-sky-500 transition">{ t.battle.result.shareBtn}</button>
-          <button onClick={() => { window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank'); markShare(); }}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition">Bluesky</button>
-          <button onClick={() => { setEnemyCard(null); setLog([]); setResult(null); setView('rarity'); }}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.sameKyu}</button>
-          <button onClick={() => { setLog([]); setResult(null); setView('select'); }}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-gray-600 rounded-xl font-bold hover:bg-gray-500 transition">{t.battle.result.changeCard}</button>
-          <button onClick={() => { setEnemyCard(null); setLog([]); setResult(null); setView('select'); }}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.sameKyuNewCard}</button>
-          <button onClick={() => setView('menu')}
-            className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-gray-800 rounded-xl font-bold hover:bg-gray-700 transition text-gray-400">{ t.battle.result.menu}</button>
-        </div>
-        </>
-        )}
-      </div>
-      </>
-    );
+    return <ResultView
+      result={result} playerCard={playerCard} enemyCard={enemyCard} kyu={kyu} log={log}
+      onlineNames={onlineNames} questStageIdx={questStageIdx} questStreak={questStreak}
+      autoRepeat={autoRepeat} setAutoRepeat={setAutoRepeat} repeatCount={repeatCount}
+      onRematch={() => { setLog([]); setResult(null); setView('battle'); }}
+      onChangeKyu={() => { setEnemyCard(null); setLog([]); setResult(null); setView('rarity'); }}
+      onChangeCard={() => { setLog([]); setResult(null); setView('select'); }}
+      onMenu={() => setView('menu')}
+      onNextEnemy={async () => {
+        if (!playerCard || questStageIdx === null) return;
+        setLog([]); setResult(null); setEnemyCard(null); setView('battle');
+        const res = await fetch("/api/gacha?count=1");
+        const data = await res.json();
+        const raw: TwitterCard = Array.isArray(data) ? data[0] : data;
+        if (raw && !(raw as { error?: string }).error) setEnemyCard(normalizeEnemy(raw, STAGE_ENEMY_SCALE[questStageIdx]));
+      }}
+      onRetry={() => { setQuestStreak(0); setLog([]); setResult(null); setEnemyCard(null); setView('select'); }}
+      onBackToQuest={() => { setQuestStageIdx(null); setQuestStreak(0); setLog([]); setResult(null); setEnemyCard(null); setView('quest'); }}
+    />;
   }
 
   // レイド{t.battle.raid.deckSelect}画面
@@ -896,103 +613,14 @@ function BattlePageInner() {
   }
 
   return (
-    <div className="min-h-dvh bg-gray-950 text-white py-10 px-4">
-      <div className="flex items-center justify-center gap-4 mb-6">
-        <button onClick={() => setView('rarity')} className="text-gray-400 hover:text-white transition text-sm">{ t.battle.back}</button>
-        <h1 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">{t.battle.randomTitle(kyu)}</h1>
-      </div>
-
-      {/* カード選択 */}
-      <div className="flex justify-center items-start gap-4 sm:gap-8 mb-8 flex-wrap">
-        {/* プレイヤー */}
-        <div className={`flex flex-col items-center gap-2 relative ${shake === 'player' ? 'screen-shake' : ''}`}>
-          <span className="text-sm text-blue-400 font-bold">{ (onlineNames?.my || playerCard?.displayName) ?? t.battle.you}</span>
-          {playerCard && <TcgCard card={playerCard} size="lg" onClick={() => setSelectMode("player")} />}
-          {dmgPop?.side === 'player' && <div key={dmgPop.key} className="dmg-pop absolute top-8 left-1/2 -translate-x-1/2 text-2xl font-black text-red-400 pointer-events-none z-10">-{dmgPop.val}</div>}
-          {/* HPバー */}
-          <div className="w-full max-w-[16rem]">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-gray-400">HP</span>
-              <span className={result ? (result.winner === "player" ? "text-green-400" : "text-red-400") : "text-white"}>
-                {pHpLive} / {playerCard?.hp ?? 0}
-              </span>
-            </div>
-            <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-500 ${hpFlash === 'player' ? 'hp-flash' : ''}`}
-                style={{ width: `${playerCard ? Math.max(0, pHpLive / playerCard.hp * 100) : 100}%`, background: playerCard && pHpLive / playerCard.hp < 0.25 ? '#ef4444' : playerCard && pHpLive / playerCard.hp < 0.5 ? '#f59e0b' : '#22c55e' }} />
-            </div>
-          </div>
-        </div>
-
-        <div className="text-2xl sm:text-4xl font-black text-gray-600 sm:mt-20">VS</div>
-
-        {/* 敵 */}
-        <div className={`flex flex-col items-center gap-2 relative ${shake === 'enemy' ? 'screen-shake' : ''}`}>
-          <span className="text-sm text-red-400 font-bold">{onlineNames?.opponent ?? enemyCard?.displayName ?? t.battle.enemy(enemyCard?.rarity ?? kyu)}</span>
-          {enemyCard
-            ? <TcgCard card={enemyCard} size="lg" />
-            : <div className="w-48 sm:w-64 h-[22rem] sm:h-[26rem] bg-gray-800 rounded-xl flex items-center justify-center text-gray-500 animate-pulse">{t.battle.raid.loading}</div>
-          }
-          {dmgPop?.side === 'enemy' && <div key={dmgPop.key} className="dmg-pop absolute top-8 left-1/2 -translate-x-1/2 text-2xl font-black text-red-400 pointer-events-none z-10">-{dmgPop.val}</div>}
-          {/* HPバー */}
-          <div className="w-full max-w-[16rem]">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-gray-400">HP</span>
-              <span className={result ? (result.winner === "enemy" ? "text-green-400" : "text-red-400") : "text-white"}>
-                {eHpLive} / {enemyCard?.hp ?? 0}
-              </span>
-            </div>
-            <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-500 ${hpFlash === 'enemy' ? 'hp-flash' : ''}`}
-                style={{ width: `${enemyCard ? Math.max(0, eHpLive / enemyCard.hp * 100) : 100}%`, background: enemyCard && eHpLive / enemyCard.hp < 0.25 ? '#ef4444' : enemyCard && eHpLive / enemyCard.hp < 0.5 ? '#f59e0b' : '#22c55e' }} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 速度スライダー */}
-      <div className="flex items-center gap-3 text-sm justify-center mb-4">
-        <span className="text-gray-400">{t.battle.speed}</span>
-        <span className="text-xs text-gray-500">{ t.battle.slow}</span>
-        <input type="range" aria-label={t.battle.speedAriaLabel} min={100} max={1200} step={100} defaultValue={1300 - localSpeed}
-          onInput={e => setLocalSpeed(1300 - Number((e.target as HTMLInputElement).value))}
-          className="w-32 accent-pink-500" />
-        <span className="text-xs text-gray-500">{ t.battle.fast}</span>
-      </div>
-
-      {/* バトルログ */}
-      {log.length > 0 && (
-        <div className="max-w-lg mx-auto bg-gray-900 rounded-xl p-4 space-y-1 max-h-40 sm:max-h-64 overflow-y-auto overscroll-contain">
-          {log.map((line, i) => (
-            <p
-              key={i}
-              style={{ animationDelay: `${i * 30}ms` }}
-              className={`text-sm slide-in-up ${
-                line.includes("🏆") ? "text-yellow-400 font-bold text-base" :
-                line.includes("💀") ? "text-red-400 font-bold text-base" :
-                "text-gray-300"
-              }`}
-            >
-              {line}
-            </p>
-          ))}
-        </div>
-      )}
-
-      {selectMode && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setSelectMode(null)}>
-          <div className="bg-gray-900 rounded-2xl p-6 max-w-3xl w-full max-h-[80vh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-4">{t.battle.selectTitle}</h2>
-            <div className="flex flex-wrap gap-3 justify-center">
-              {collection.map((card) => (
-                <TcgCard key={card.id} card={card} size="sm"
-                  onClick={() => { setPlayerCard(card); setSelectMode(null); setLog([]); setResult(null); }} />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <BattleView
+      playerCard={playerCard!} enemyCard={enemyCard} pHpLive={pHpLive} eHpLive={eHpLive}
+      shake={shake} dmgPop={dmgPop} hpFlash={hpFlash} log={log}
+      localSpeed={localSpeed} setLocalSpeed={setLocalSpeed} kyu={kyu}
+      onlineNames={onlineNames} result={result} selectMode={selectMode} setSelectMode={setSelectMode}
+      collection={collection}
+      onSelectCard={(card) => { setPlayerCard(card); setSelectMode(null); setLog([]); setResult(null); }}
+    />
   );
 }
 
