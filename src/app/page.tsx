@@ -518,6 +518,17 @@ export default function GachaPage() {
               >
                 <Share2 size={18} /> Bluesky
               </button>
+              <button
+                onClick={() => {
+                  const text = cards.map(c => `${c.rarity}${c.element} ${c.displayName}`).join('\n');
+                  const shareText = t.gacha.shareText(text) + '\nhttps://twigacha.vercel.app';
+                  window.open(`https://misskeyshare.link/share.html?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent('https://twigacha.vercel.app')}`, '_blank');
+                  markShare();
+                }}
+                className="px-6 py-3 bg-cyan-600 rounded-xl font-bold hover:bg-cyan-500 transition flex items-center gap-2"
+              >
+                <Share2 size={18} /> Misskey
+              </button>
             </div>
           )}
         </div>

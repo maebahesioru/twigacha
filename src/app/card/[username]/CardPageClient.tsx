@@ -76,6 +76,12 @@ export default function CardPageClient({ username, initialCard }: { username: st
         >
           {t.battle.cardPageShareBsky}
         </button>
+        <button
+          onClick={() => { window.open(`https://misskeyshare.link/share.html?text=${encodeURIComponent(t.battle.cardPageShareText(card.displayName, card.rarity, card.username))}&url=${encodeURIComponent('https://twigacha.vercel.app')}`, '_blank'); useGameStore.getState().markShare(); }}
+          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-sm transition flex items-center gap-2"
+        >
+          Misskey
+        </button>
       </div>
 
       {/* バトルシミュレーション */}

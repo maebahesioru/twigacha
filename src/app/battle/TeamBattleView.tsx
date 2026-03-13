@@ -514,6 +514,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
           return (<>
             <button onClick={() => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(copyText)}`, '_blank'); useGameStore.getState().markShare(); }} className="ripple-btn py-3 bg-sky-600 rounded-xl font-bold hover:bg-sky-500 transition">{t.battle.result.shareBtn}</button>
             <button onClick={() => { window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank'); useGameStore.getState().markShare(); }} className="ripple-btn py-3 bg-blue-500 rounded-xl font-bold hover:bg-blue-400 transition">Bluesky</button>
+            <button onClick={() => { window.open(`https://misskeyshare.link/share.html?text=${encodeURIComponent(copyText)}&url=${encodeURIComponent('https://twigacha.vercel.app')}`, '_blank'); useGameStore.getState().markShare(); }} className="ripple-btn py-3 bg-cyan-600 rounded-xl font-bold hover:bg-cyan-500 transition">Misskey</button>
           </>);
         })()}
       </div>

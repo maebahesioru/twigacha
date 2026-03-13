@@ -268,6 +268,7 @@ if (mode === "matching") return (
               className="px-4 py-2 bg-sky-600 rounded-lg text-sm font-bold hover:bg-sky-500 transition">{t.battle.onlineRecruitBtn}</button>
             <button onClick={() => window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(text)}`, '_blank')}
               className="px-4 py-2 bg-blue-500 rounded-lg text-sm font-bold hover:bg-blue-400 transition">🦋 Bluesky</button>
+            <button onClick={() => window.open(`https://misskeyshare.link/share.html?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://twigacha.vercel.app')}`, '_blank')} className="px-4 py-2 bg-cyan-600 rounded-lg text-sm font-bold hover:bg-cyan-500 transition">Misskey</button>
           </div>
         );
       })()}
@@ -297,6 +298,8 @@ if (mode === "matching") return (
               className="px-4 py-2 bg-sky-600 rounded-lg text-sm font-bold hover:bg-sky-500 transition">{t.battle.onlineRecruitBtn}</button>
             <button onClick={() => window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(text)}`, '_blank')}
               className="px-4 py-2 bg-blue-500 rounded-lg text-sm font-bold hover:bg-blue-400 transition">🦋 Bluesky</button>
+            <button onClick={() => window.open(`https://misskeyshare.link/share.html?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://twigacha.vercel.app')}`, '_blank')}
+              className="px-4 py-2 bg-cyan-600 rounded-lg text-sm font-bold hover:bg-cyan-500 transition">Misskey</button>
           </>);
         })()}
       </div>

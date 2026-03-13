@@ -121,16 +121,18 @@ export function ResultView({ result, playerCard, enemyCard, kyu, log, onlineName
               </button>
               {repeatCount > 0 && <span className="text-gray-400 text-sm">{t.battle.autoRepeatCount(repeatCount)}</span>}
             </div>
-            <div className="grid grid-cols-3 gap-2 w-full max-w-2xl">
-              <button onClick={() => navigator.clipboard.writeText(copyText)} className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-blue-700 rounded-xl font-bold hover:bg-blue-600 transition">{t.battle.result.copyBtn}</button>
-              <button onClick={() => { window.open(shareUrl, "_blank"); markShare(); }} className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-sky-600 rounded-xl font-bold hover:bg-sky-500 transition">{t.battle.result.shareBtn}</button>
-              <button onClick={() => { window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, "_blank"); markShare(); }} className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition">Bluesky</button>
-              <button onClick={onRematch} className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.rematch}</button>
-              <button onClick={onChangeKyu} className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.sameKyu}</button>
-              <button onClick={onChangeKyu} className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.sameKyuNewCard}</button>
-              <button onClick={onChangeCard} className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-gray-600 rounded-xl font-bold hover:bg-gray-500 transition">{t.battle.result.changeCard}</button>
-              <button onClick={onChangeKyu} className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-gray-600 rounded-xl font-bold hover:bg-gray-500 transition">{t.battle.result.changeKyu}</button>
-              <button onClick={onMenu} className="px-3 py-2 sm:px-5 sm:py-3 text-sm sm:text-base bg-gray-800 rounded-xl font-bold hover:bg-gray-700 transition text-gray-400">{t.battle.result.menu}</button>
+            <div className="grid grid-cols-4 gap-2 w-full max-w-2xl">
+              <button onClick={() => navigator.clipboard.writeText(copyText)} className="px-3 py-2 text-sm bg-blue-700 rounded-xl font-bold hover:bg-blue-600 transition">{t.battle.result.copyBtn}</button>
+              <button onClick={() => { window.open(shareUrl, "_blank"); markShare(); }} className="px-3 py-2 text-sm bg-sky-600 rounded-xl font-bold hover:bg-sky-500 transition">{t.battle.result.shareBtn}</button>
+              <button onClick={() => { window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, "_blank"); markShare(); }} className="px-3 py-2 text-sm bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition">Bluesky</button>
+              <button onClick={() => { window.open(`https://misskeyshare.link/share.html?text=${encodeURIComponent(copyText)}&url=${encodeURIComponent("https://twigacha.vercel.app")}`, "_blank"); markShare(); }} className="px-3 py-2 text-sm bg-cyan-600 rounded-xl font-bold hover:bg-cyan-500 transition">Misskey</button>
+              <button onClick={onRematch} className="px-3 py-2 text-sm bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.rematch}</button>
+              <button onClick={onChangeKyu} className="px-3 py-2 text-sm bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.sameKyu}</button>
+              <button onClick={onChangeKyu} className="px-3 py-2 text-sm bg-green-700 rounded-xl font-bold hover:bg-green-600 transition">{t.battle.result.sameKyuNewCard}</button>
+              <div />
+              <button onClick={onChangeKyu} className="px-3 py-2 text-sm bg-gray-600 rounded-xl font-bold hover:bg-gray-500 transition">{t.battle.result.changeKyu}</button>
+              <button onClick={onChangeCard} className="px-3 py-2 text-sm bg-gray-600 rounded-xl font-bold hover:bg-gray-500 transition">{t.battle.result.changeCard}</button>
+              <button onClick={onMenu} className="px-3 py-2 text-sm bg-gray-800 rounded-xl font-bold hover:bg-gray-700 transition text-gray-400">{t.battle.result.menu}</button>
             </div>
           </>
         )}

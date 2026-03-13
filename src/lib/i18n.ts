@@ -3,7 +3,7 @@ import { jaStages, enStages } from "./i18n.stages";
 
 const ja = {
   nav: { gacha: "🎴 ガチャ", collection: "📦 コレクション", battle: "⚔️ バトル", achievements: "🏆 実績", cardSearch: "🔍 カード検索", ranking: "🏆 ランキング" },
-  cardSearch: { hint: "Twitter ID または Bluesky ハンドルを入力", notFound: (u: string) => `@${u} が見つかりませんでした`, playNow: "TwiGachaで遊ぶ →" },
+  cardSearch: { hint: "Twitter ID / Bluesky / user@misskey.io", notFound: (u: string) => `@${u} が見つかりませんでした`, playNow: "TwiGachaで遊ぶ →" },
   footer: { rulebook: "📖 ルールブック", privacy: "プライバシーポリシー", terms: "利用規約", contact: "お問い合わせ" },
   gacha: {
     title: "TwiGacha",
@@ -405,7 +405,7 @@ const ja = {
 
 const en: typeof ja = {
   nav: { gacha: "🎴 Gacha", collection: "📦 Collection", battle: "⚔️ Battle", achievements: "🏆 Achievements", cardSearch: "🔍 Card Search", ranking: "🏆 Ranking" },
-  cardSearch: { hint: "Enter a Twitter ID or Bluesky handle", notFound: (u: string) => `@${u} not found`, playNow: "Play TwiGacha →" },
+  cardSearch: { hint: "Twitter ID / Bluesky / user@misskey.io", notFound: (u: string) => `@${u} not found`, playNow: "Play TwiGacha →" },
   footer: { rulebook: "📖 Rulebook", privacy: "Privacy Policy", terms: "Terms of Service", contact: "Contact" },
   gacha: {
     title: "TwiGacha",
