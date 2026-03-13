@@ -2,8 +2,8 @@ export type Lang = "ja" | "en";
 import { jaStages, enStages } from "./i18n.stages";
 
 const ja = {
-  nav: { gacha: "🎴 ガチャ", collection: "📦 コレクション", battle: "⚔️ バトル", achievements: "🏆 実績", cardSearch: "🔍 カード検索", ranking: "🏆 ランキング" },
-  cardSearch: { hint: "Twitter ID / Bluesky / user@misskey.io", notFound: (u: string) => `@${u} が見つかりませんでした`, playNow: "TwiGachaで遊ぶ →" },
+  nav: { gacha: "🎴 ガチャ", collection: "📦 コレクション", battle: "⚔️ バトル", achievements: "🏆 実績", cardSearch: "🔍 カード検索" },
+  cardSearch: { hint: "Twitter ID / Bluesky / user@misskey.io / user@mastodon.social", notFound: (u: string) => `@${u} が見つかりませんでした`, playNow: "TwiGachaで遊ぶ →" },
   footer: { rulebook: "📖 ルールブック", privacy: "プライバシーポリシー", terms: "利用規約", contact: "お問い合わせ" },
   gacha: {
     title: "TwiGacha",
@@ -297,12 +297,6 @@ const ja = {
       online: "団体戦オンライン",
     },
   },
-  ranking: {
-    title: "🏆 カードランキング",
-    tabs: { wins: "🏆 勝利数", rate: "📊 勝率", battles: "⚔️ 対戦数", streak: "🔥 最大連勝", ko: "💀 KO勝利", ultimate: "⚡ 必殺技", atk: "💪 ATK" },
-    rateNote: "※5戦以上のカードのみ表示",
-    allRarity: "全レアリティ", allElement: "全属性", noData: "まだデータがありません",
-  },
   achievements: {
     title: "🏆 実績",
     progress: (n: number, t: number) => `${n} / ${t} 達成`,
@@ -404,8 +398,8 @@ const ja = {
 };
 
 const en: typeof ja = {
-  nav: { gacha: "🎴 Gacha", collection: "📦 Collection", battle: "⚔️ Battle", achievements: "🏆 Achievements", cardSearch: "🔍 Card Search", ranking: "🏆 Ranking" },
-  cardSearch: { hint: "Twitter ID / Bluesky / user@misskey.io", notFound: (u: string) => `@${u} not found`, playNow: "Play TwiGacha →" },
+  nav: { gacha: "🎴 Gacha", collection: "📦 Collection", battle: "⚔️ Battle", achievements: "🏆 Achievements", cardSearch: "🔍 Card Search" },
+  cardSearch: { hint: "Twitter ID / Bluesky / user@misskey.io / user@mastodon.social", notFound: (u: string) => `@${u} not found`, playNow: "Play TwiGacha →" },
   footer: { rulebook: "📖 Rulebook", privacy: "Privacy Policy", terms: "Terms of Service", contact: "Contact" },
   gacha: {
     title: "TwiGacha",
@@ -698,12 +692,6 @@ const en: typeof ja = {
       startRandom: "⚔️ Start Random Battle",
       online: "Team Online Battle",
     },
-  },
-  ranking: {
-    title: "🏆 Card Rankings",
-    tabs: { wins: "🏆 Wins", rate: "📊 Win Rate", battles: "⚔️ Battles", streak: "🔥 Best Streak", ko: "💀 KO Wins", ultimate: "⚡ Ultimates", atk: "💪 ATK" },
-    rateNote: "※Min 5 battles required",
-    allRarity: "All Rarities", allElement: "All Elements", noData: "No data yet",
   },
   achievements: {
     title: "🏆 Achievements",

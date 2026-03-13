@@ -135,10 +135,6 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
     setBattleResult({ wins, losses, result, enemyTeam });
     result === "win" ? playVictory() : result === "lose" ? playDefeat() : null;
     addTeamBattleResult({ date: new Date().toLocaleDateString(), myTeam: myTeam.map(c => c.id), enemyTeam: enemyTeam.map(c => c.id), wins, losses, result, opponentName: onlineNames?.opponent, kyu: teamKyu ?? undefined, log: logs, rounds: rounds.map(r => ({ p: r.p, e: r.e, hpSnaps: r.hpSnaps, log: r.log, win: r.win })) });
-    // カードランキングに各カードの結果を送信
-    rounds.forEach(r => {
-      fetch('/api/ranking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_id: r.p.id, username: r.p.username, display_name: r.p.displayName, avatar: r.p.avatar, rarity: r.p.rarity, atk: r.p.atk, element: r.p.element, won: r.win, ko_win: r.win && r.ko, ultimate_count: 0 }) }).catch(() => {});
-    });
     // 連勝ボーナス用に個人戦履歴にも記録（mode:'team'）、各ラウンドをリプレイ対応で保存
     if (!onlineNames) {
       rounds.forEach(r => addBattleResult({ winner: r.win ? 'player' : 'enemy', turns: r.turns, kyu: teamKyu ?? 'C', playerCardId: r.p.id, pHp: r.pHp, ko: r.ko, playerCardRarity: r.p.rarity, mode: 'team', log: r.log, hpSnaps: r.hpSnaps, playerSnap: r.p, enemySnap: r.e }));
@@ -515,6 +511,7 @@ export function TeamBattleView({ collection, teamBattleHistory, addTeamBattleRes
             <button onClick={() => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(copyText)}`, '_blank'); useGameStore.getState().markShare(); }} className="ripple-btn py-3 bg-sky-600 rounded-xl font-bold hover:bg-sky-500 transition">{t.battle.result.shareBtn}</button>
             <button onClick={() => { window.open(`https://bsky.app/intent/compose?text=${encodeURIComponent(copyText)}`, '_blank'); useGameStore.getState().markShare(); }} className="ripple-btn py-3 bg-blue-500 rounded-xl font-bold hover:bg-blue-400 transition">Bluesky</button>
             <button onClick={() => { window.open(`https://misskeyshare.link/share.html?text=${encodeURIComponent(copyText)}&url=${encodeURIComponent('https://twigacha.vercel.app')}`, '_blank'); useGameStore.getState().markShare(); }} className="ripple-btn py-3 bg-cyan-600 rounded-xl font-bold hover:bg-cyan-500 transition">Misskey</button>
+            <button onClick={() => { window.open(`https://donshare.net/share.html?text=${encodeURIComponent(copyText)}&url=${encodeURIComponent('https://twigacha.vercel.app')}`, '_blank'); useGameStore.getState().markShare(); }} className="ripple-btn py-3 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 transition">Mastodon</button>
           </>);
         })()}
       </div>

@@ -84,6 +84,51 @@ async function fetchXUltimates(username: string): Promise<{ text: string; score:
   } catch { return []; }
 }
 
+async function fetchMisskeyUltimates(userId: string): Promise<{ text: string; score: number; effect: string }[]> {
+  try {
+    const res = await fetch(`${MISSKEY_BASE}/api/users/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, limit: 20 }),
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return [];
+    const notes = await res.json();
+    if (!Array.isArray(notes)) return [];
+    return notes
+      .map((n: { text?: string; reactions?: Record<string, number> }) => {
+        const text = (n.text ?? "").replace(/https?:\/\/\S+/g, "").trim();
+        const score = Object.values(n.reactions ?? {}).reduce((a, b) => a + b, 0);
+        return { text: text.slice(0, 30), score };
+      })
+      .filter(u => u.text.length > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((u, i) => ({ ...u, effect: getUltimateEffect(u.text, i) }));
+  } catch { return []; }
+}
+
+async function fetchMastodonUltimates(accountId: string, instance: string): Promise<{ text: string; score: number; effect: string }[]> {
+  try {
+    const res = await fetch(`https://${instance}/api/v1/accounts/${accountId}/statuses?limit=20`, {
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return [];
+    const statuses = await res.json();
+    if (!Array.isArray(statuses)) return [];
+    return statuses
+      .map((s: { content?: string; favourites_count?: number; reblogs_count?: number; replies_count?: number }) => {
+        const text = (s.content ?? "").replace(/<[^>]+>/g, "").replace(/https?:\/\/\S+/g, "").trim();
+        const score = Number(s.favourites_count ?? 0) + Number(s.reblogs_count ?? 0) * 3 + Number(s.replies_count ?? 0) * 2;
+        return { text: text.slice(0, 30), score };
+      })
+      .filter(u => u.text.length > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((u, i) => ({ ...u, effect: getUltimateEffect(u.text, i) }));
+  } catch { return []; }
+}
+
 async function fetchBskyUltimates(handle: string): Promise<{ text: string; score: number; effect: string }[]> {
   try {
     const res = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&limit=20`, {
@@ -321,6 +366,100 @@ function buildMisskeyCard(u: any) {
 
 const MISSKEY_BASE = "https://misskey.io";
 
+// Mastodonサーバーキャッシュ（起動時1回取得）
+let mastodonServers: string[] = [];
+async function getMastodonServers(): Promise<string[]> {
+  if (mastodonServers.length > 0) return mastodonServers;
+  try {
+    const res = await fetch("https://api.joinmastodon.org/servers", { next: { revalidate: 86400 } });
+    if (!res.ok) return ["mastodon.social"];
+    const data = await res.json();
+    mastodonServers = (data as { domain: string }[]).map(s => s.domain);
+    return mastodonServers;
+  } catch { return ["mastodon.social"]; }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildMastodonCard(u: any, instance: string) {
+  const card = buildCard({
+    id: `mdon_${instance}_${u.id}`,
+    screen_name: u.acct?.includes("@") ? u.acct : `${u.username}@${instance}`,
+    name: u.display_name || u.username,
+    avatar: u.avatar ?? "",
+    description: u.note?.replace(/<[^>]+>/g, "") ?? "",
+    followers: u.followers_count ?? 0,
+    following: u.following_count ?? 0,
+    statuses: u.statuses_count ?? 0,
+    likes: 0,
+    media_count: (u.fields ?? []).length * 100,
+    joined: u.created_at ?? "",
+    verified: (u.fields ?? []).some((f: { verified_at: string | null }) => f.verified_at),
+    location: undefined,
+    website: u.url || undefined,
+  });
+  const defBonus = (u.locked ? 150 : 0) + (u.header ? 80 : 0);
+  const atkBonus = u.bot ? 150 : 0;
+  const lukBonus = (u.fields ?? []).filter((f: { verified_at: string | null }) => f.verified_at).length * 50;
+  return {
+    ...card,
+    atk: Math.min(card.atk + atkBonus, 9999),
+    def: Math.min(card.def + defBonus, 9999),
+    luk: Math.min(card.luk + lukBonus, 9999),
+    platform: "mastodon",
+  };
+}
+
+async function fetchRandomMastodonUsers(count: number) {
+  try {
+    const servers = await getMastodonServers();
+    const domain = servers[Math.floor(Math.random() * servers.length)];
+    const res = await fetch(`https://${domain}/api/v1/directory?local=true&order=active&limit=40`, { next: { revalidate: 0 } });
+    if (!res.ok) return [];
+    const users = await res.json();
+    if (!Array.isArray(users)) return [];
+    return shuffle(users).slice(0, count).map((u: unknown) => buildMastodonCard(u, domain));
+  } catch { return []; }
+}
+
+async function fetchPickupMastodonUsers(query: string, count: number) {
+  try {
+    const res = await fetch(`https://mastodon.social/api/v2/search?q=${encodeURIComponent(query)}&type=accounts&limit=${count * 4}&resolve=false`, { next: { revalidate: 0 } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const accounts = (data.accounts ?? []) as { acct: string; [key: string]: unknown }[];
+    // nodeinfoでmastodonのみに絞る（キャッシュ付き）
+    const instanceCache = new Map<string, boolean>();
+    const isMastodon = async (acct: string) => {
+      const instance = acct.includes("@") ? acct.split("@")[1] : "mastodon.social";
+      if (instanceCache.has(instance)) return instanceCache.get(instance)!;
+      try {
+        const ni = await fetch(`https://${instance}/.well-known/nodeinfo`, { next: { revalidate: 86400 } }).then(r => r.ok ? r.json() : null);
+        const href = ni?.links?.[0]?.href;
+        if (!href) { instanceCache.set(instance, false); return false; }
+        const info = await fetch(href, { next: { revalidate: 86400 } }).then(r => r.ok ? r.json() : null);
+        const result = info?.software?.name === "mastodon";
+        instanceCache.set(instance, result);
+        return result;
+      } catch { instanceCache.set(instance, false); return false; }
+    };
+    const filtered = (await Promise.all(accounts.map(async u => (await isMastodon(u.acct)) ? u : null))).filter(Boolean);
+    return filtered.slice(0, count).map((u: unknown) => {
+      const acc = u as { acct: string; [key: string]: unknown };
+      const instance = acc.acct.includes("@") ? acc.acct.split("@")[1] : "mastodon.social";
+      return buildMastodonCard(acc, instance);
+    });
+  } catch { return []; }
+}
+
+async function fetchMastodonUser(username: string, instance: string) {
+  try {
+    const res = await fetch(`https://${instance}/api/v1/accounts/lookup?acct=${encodeURIComponent(username)}`, { next: { revalidate: 0 } });
+    if (!res.ok) return null;
+    const u = await res.json();
+    return buildMastodonCard(u, instance);
+  } catch { return null; }
+}
+
 function shuffle<T>(arr: T[]): T[] {
   return arr.sort(() => Math.random() - 0.5);
 }
@@ -332,11 +471,13 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const count = Math.min(parseInt(searchParams.get("count") ?? "5"), 10);
   const rawUsername = searchParams.get("username");
-  const isBsky = rawUsername ? rawUsername.includes(".") : false;
+  const platform = searchParams.get("platform"); // "mastodon" の場合はMastodon指定
+  const isMastodonUser = platform === "mastodon" || (rawUsername?.includes("@") && rawUsername.split("@").length === 2 && platform !== "misskey");
+  const isBsky = rawUsername ? (!rawUsername.includes("@") && rawUsername.includes(".")) : false;
   const username = rawUsername
     ? isBsky
       ? rawUsername.replace(/^@/, "").slice(0, 100)
-      : rawUsername.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 50)
+      : rawUsername.replace(/^@/, "").slice(0, 100)
     : null;
 
   const rawQuery = searchParams.get("query");
@@ -345,10 +486,11 @@ export async function GET(req: Request) {
   // ピックアップガチャ
   if (query) {
     try {
-      const [usernames, bskyUsers, misskeyUsers] = await Promise.all([
+      const [usernames, bskyUsers, misskeyUsers, mastodonUsers] = await Promise.all([
         fetchPickupUsernames(query),
-        fetchPickupBskyUsers(query, Math.ceil(count / 3)),
-        fetchPickupMisskeyUsers(query, Math.ceil(count / 3)),
+        fetchPickupBskyUsers(query, Math.ceil(count / 4)),
+        fetchPickupMisskeyUsers(query, Math.ceil(count / 4)),
+        fetchPickupMastodonUsers(query, Math.ceil(count / 4)),
       ]);
       const twitterCards = await Promise.all(
         shuffle([...new Set(usernames)]).slice(0, count).map(fetchFxUser)
@@ -364,7 +506,7 @@ export async function GET(req: Request) {
         username_changes: user.about_account?.username_changes?.count ?? 0,
         location: user.location || undefined, website: user.website?.url || user.website || undefined,
       })));
-      const cards = shuffle([...twitterCards, ...bskyUsers.map(buildBskyCard), ...misskeyUsers.map(buildMisskeyCard)]).slice(0, count);
+      const cards = shuffle([...twitterCards, ...bskyUsers.map(buildBskyCard), ...misskeyUsers.map(buildMisskeyCard), ...mastodonUsers]).slice(0, count);
       if (!cards.length) return NextResponse.json({ error: "カードを取得できませんでした" }, { status: 404 });
       return NextResponse.json(cards);
     } catch (e) {
@@ -376,6 +518,30 @@ export async function GET(req: Request) {
 
   if (username) {
     try {
+      // Mastodon: user@instance 形式 + platform=mastodon
+      if (isMastodonUser && username.includes("@")) {
+        const [mUser, mInstance] = username.split("@");
+        // nodeinfoでMastodonか確認、失敗したらMisskeyにフォールバック
+        let isMastodonInstance = platform === "mastodon";
+        if (!isMastodonInstance) {
+          try {
+            const ni = await fetch(`https://${mInstance}/.well-known/nodeinfo`, { next: { revalidate: 86400 } }).then(r => r.ok ? r.json() : null);
+            const href = ni?.links?.[0]?.href;
+            if (href) {
+              const info = await fetch(href, { next: { revalidate: 86400 } }).then(r => r.ok ? r.json() : null);
+              isMastodonInstance = info?.software?.name === "mastodon";
+            }
+          } catch { /* fallthrough to Misskey */ }
+        }
+        if (isMastodonInstance) {
+          const card = await fetchMastodonUser(mUser, mInstance || "mastodon.social");
+          if (!card) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
+          // Mastodon ultimates: account IDはidフィールドから取得
+          const rawId = card.id.replace(`mdon_${mInstance || "mastodon.social"}_`, "");
+          const ultimates = await fetchMastodonUltimates(rawId, mInstance || "mastodon.social");
+          return NextResponse.json({ ...card, ultimates });
+        }
+      }
       // Misskey: user@instance 形式
       if (username.includes("@")) {
         const [mUser, mHost] = username.split("@");
@@ -386,7 +552,9 @@ export async function GET(req: Request) {
           next: { revalidate: 0 },
         }).then(r => r.ok ? r.json() : null).catch(() => null);
         if (!u) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
-        return NextResponse.json(buildMisskeyCard(u));
+        const misskeyCard = buildMisskeyCard(u);
+        const ultimates = await fetchMisskeyUltimates(u.id);
+        return NextResponse.json({ ...misskeyCard, ultimates });
       }
       if (isBsky) {
         const u = await fetchBskyUser(username);
@@ -421,11 +589,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Twitter・Bsky・Misskeyを並列取得してシャッフル
-    const [usernames, bskyUsers, misskeyUsers] = await Promise.all([
+    // Twitter・Bsky・Misskey・Mastodonを並列取得してシャッフル
+    const [usernames, bskyUsers, misskeyUsers, mastodonUsers] = await Promise.all([
       fetchUsernames(),
-      fetchRandomBskyUsers(Math.ceil(count / 3)),
-      fetchRandomMisskeyUsers(Math.ceil(count / 3)),
+      fetchRandomBskyUsers(Math.ceil(count / 4)),
+      fetchRandomMisskeyUsers(Math.ceil(count / 4)),
+      fetchRandomMastodonUsers(Math.ceil(count / 4)),
     ]);
 
     const twitterCards = await Promise.all(
@@ -451,7 +620,7 @@ export async function GET(req: Request) {
 
     const bskyCards = bskyUsers.map(buildBskyCard);
     const misskeyCards = misskeyUsers.map(buildMisskeyCard);
-    const cards = shuffle([...twitterCards, ...bskyCards, ...misskeyCards]).slice(0, count);
+    const cards = shuffle([...twitterCards, ...bskyCards, ...misskeyCards, ...mastodonUsers]).slice(0, count);
 
     if (!cards.length) {
       return NextResponse.json({ error: "カードを取得できませんでした" }, { status: 404 });

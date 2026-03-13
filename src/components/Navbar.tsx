@@ -22,7 +22,6 @@ export default function Navbar() {
     { href: "/", label: t.nav.gacha },
     { href: "/collection", label: t.nav.collection },
     { href: "/battle", label: t.nav.battle },
-    { href: "/ranking", label: t.nav.ranking },
     { href: "/achievements", label: t.nav.achievements },
     { href: "/card", label: t.nav.cardSearch },
   ];

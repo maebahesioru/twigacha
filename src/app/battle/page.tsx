@@ -139,8 +139,21 @@ function BattlePageInner() {
     const fetchUlts = async (username: string) => {
       try { const d = await fetch(`/api/gacha?username=${encodeURIComponent(username)}`).then(r => r.json()); return d.ultimates ?? []; } catch { return []; }
     };
+    const fetchWithRetry = async (url: string): Promise<Response> => {
+      while (true) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 2000);
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timer);
+          return res;
+        } catch {
+          clearTimeout(timer);
+        }
+      }
+    };
     try {
-      const res = await fetch('/api/gacha?count=5');
+      const res = await fetchWithRetry('/api/gacha?count=5');
       const data = await res.json();
       const cards: TwitterCard[] = data.filter((c: { error?: string }) => c && !c.error) as TwitterCard[];
       const exact = cards.find(c => c.rarity === targetKyu);
@@ -214,7 +227,6 @@ function BattlePageInner() {
       }
     }
     const ultimateCount = battleLog.filter(l => l.includes("⚡必殺") && l.includes(`@${playerCard.username}`) === false && winner === 'player' ? false : l.includes("⚡必殺")).length;
-    fetch('/api/ranking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_id: playerCard.id, username: playerCard.username, display_name: playerCard.displayName, avatar: playerCard.avatar, rarity: playerCard.rarity, atk: playerCard.atk, element: playerCard.element, won: winner === 'player', ko_win: winner === 'player' && ko, ultimate_count: ultimateCount }) }).catch(() => {});
     winner === 'player' ? playVictory() : playDefeat();
     setTimeout(() => setView('result'), 1500);
   }, [playerCard, enemyCard, precomputedBattle]);
@@ -326,10 +338,6 @@ function BattlePageInner() {
     if (cleared) { clearRaid(); incrementRaidClearCount(); }
     addRaidHistory({ date: new Date().toLocaleDateString(), bossName: raidBossCard.displayName, totalDmg, cleared, log: raidLogs, snaps: raidSnaps });
     markRaidMission();
-    // カードランキングに各カードの結果を送信
-    deck.forEach(card => {
-      fetch('/api/ranking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_id: card.id, username: card.username, display_name: card.displayName, avatar: card.avatar, rarity: card.rarity, atk: card.atk, element: card.element, won: cleared, ko_win: false, ultimate_count: 0 }) }).catch(() => {});
-    });
     setRaidResult({ cleared, totalDmg, turns: totalTurns });
     setRaidRunning(false);
     setView('raid-result');

@@ -9,6 +9,50 @@ import Confetti from "@/components/Confetti";
 import { playMissionComplete } from "@/lib/audio";
 import LoginBonus from "@/components/LoginBonus";
 
+const LOADING_MSGS = [
+  "🔮 運命のカードを探しています...", "✨ 星の配置を確認中...", "🎴 カードを召喚中...",
+  "⚡ エネルギーを収束中...", "🌀 次元の扉を開いています...", "🎲 運命を決定中...",
+  "🔥 レアカードの気配...", "💫 宇宙の意志に問いかけ中...", "🃏 デッキをシャッフル中...",
+  "🌟 奇跡を引き寄せています...",
+];
+const POWER_MSGS = ["念を込めてタップ！", "もっと！", "いい感じ！", "レアが近い...！", "MAX念力！！"];
+
+function LoadingPack({ packSrc }: { packSrc: string }) {
+  const [idx, setIdx] = useState(() => Math.floor(Math.random() * LOADING_MSGS.length));
+  const [taps, setTaps] = useState(0);
+  const [sparks, setSparks] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [glow, setGlow] = useState(false);
+  useEffect(() => {
+    const t = setInterval(() => setIdx(i => (i + 1) % LOADING_MSGS.length), 900);
+    return () => clearInterval(t);
+  }, []);
+  const handleTap = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const id = Date.now() + Math.random();
+    setSparks(s => [...s, { id, x, y }]);
+    setTimeout(() => setSparks(s => s.filter(sp => sp.id !== id)), 600);
+    setTaps(t => t + 1);
+    setGlow(true);
+    setTimeout(() => setGlow(false), 200);
+  };
+  const powerLevel = Math.min(Math.floor(taps / 3), POWER_MSGS.length - 1);
+  return (
+    <div className="flex flex-col items-center gap-2 cursor-pointer select-none" onClick={handleTap}>
+      <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-[32rem]">
+        <img src={packSrc} alt="" className="w-full drop-shadow-2xl"
+          style={{ clipPath: "inset(10% 0 0 0)", filter: glow ? "brightness(1.5) saturate(2)" : "none", transition: "filter 0.1s" }} />
+        {sparks.map(sp => (
+          <div key={sp.id} className="pointer-events-none absolute text-yellow-300 text-xl font-black animate-ping"
+            style={{ left: sp.x, top: sp.y, transform: "translate(-50%,-50%)" }}>✨</div>
+        ))}
+      </div>
+      {taps > 0 && <p className="text-yellow-400 text-xs font-bold">{POWER_MSGS[powerLevel]} ({taps})</p>}
+      <p className="text-gray-400 text-sm animate-pulse">{LOADING_MSGS[idx]}</p>
+    </div>
+  );
+}
 export default function GachaPage() {
   const [cards, setCards] = useState<TwitterCard[]>([]);
   const [revealed, setRevealed] = useState(0);
@@ -278,21 +322,22 @@ export default function GachaPage() {
             disabled={tearing || loading || todayPackCount >= effectiveLimit}
             className={`hover:scale-105 active:scale-95 transition disabled:opacity-50 ${!loading && !tearing && todayPackCount < effectiveLimit ? 'float' : ''}`}
           >
-            <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-[32rem]">
-              <img src={pityCount >= 9 ? "/pack-sr.png" : "/pack.png"} alt="" className={`w-full drop-shadow-2xl ${loading ? "animate-pulse" : ""}`}
-                style={{ clipPath: "inset(10% 0 0 0)" }} />
-              {!loading && (
+            {loading ? (
+              <LoadingPack packSrc={pityCount >= 9 ? "/pack-sr.png" : "/pack.png"} />
+            ) : (
+              <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-[32rem]">
+                <img src={pityCount >= 9 ? "/pack-sr.png" : "/pack.png"} alt="" className="w-full drop-shadow-2xl"
+                  style={{ clipPath: "inset(10% 0 0 0)" }} />
                 <img src={pityCount >= 9 ? "/pack-sr.png" : "/pack.png"} alt={t.gacha.tapToOpen} className="w-full absolute top-0 left-0"
                   style={{
                     clipPath: "inset(0 0 90% 0)",
                     ...(tearing ? { animation: "pack-top-fly 0.5s ease-in forwards" } : {}),
                   }} />
-              )}
-            </div>
+              </div>
+            )}
           </button>
           {!loading && todayPackCount < effectiveLimit && <p className="text-gray-400 text-sm mt-2 animate-bounce">{t.gacha.tapToOpen}</p>}
           {!loading && todayPackCount >= effectiveLimit && <p className="text-red-400 text-sm mt-2">{t.gacha.limitReached}</p>}
-          {loading && <p className="text-gray-400 text-sm mt-2">Loading...</p>}
 
           {/* ピックアップガチャ */}
           <div className="mt-4 w-full max-w-sm bg-gray-800/80 rounded-xl p-3 text-sm">
@@ -528,6 +573,17 @@ export default function GachaPage() {
                 className="px-6 py-3 bg-cyan-600 rounded-xl font-bold hover:bg-cyan-500 transition flex items-center gap-2"
               >
                 <Share2 size={18} /> Misskey
+              </button>
+              <button
+                onClick={() => {
+                  const text = cards.map(c => `${c.rarity}${c.element} ${c.displayName}`).join('\n');
+                  const shareText = t.gacha.shareText(text) + '\nhttps://twigacha.vercel.app';
+                  window.open(`https://donshare.net/share.html?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent('https://twigacha.vercel.app')}`, '_blank');
+                  markShare();
+                }}
+                className="px-6 py-3 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 transition flex items-center gap-2"
+              >
+                <Share2 size={18} /> Mastodon
               </button>
             </div>
           )}
