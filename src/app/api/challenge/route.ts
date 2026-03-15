@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   body.queueId = str(body.queueId, 40);
 
   if (body.action === 'team_create') {
-    const id = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
     const hostTeam = await verifyTeam(sanitizeTeam(body.hostTeam));
     const { error } = await supabase.from('challenges').insert({
       id, host_id: body.hostId, host_card: hostTeam, host_name: body.name ?? '',
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     if (waiting && waiting.length > 0) {
       const opponent = waiting[0];
       const result = simulateTeamBattle(opponent.card as TwitterCard[], team);
-      const id = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
       await supabase.from('challenges').insert({ id, host_id: opponent.player_id, host_card: opponent.card, host_name: opponent.player_name ?? '', guest_id: playerId, guest_card: team, guest_name: name ?? '', result });
       await supabase.from('matchmaking').update({ matched: true, challenge_id: id }).eq('id', opponent.id);
       return NextResponse.json({ matched: true, challengeId: id, result, hostTeam: opponent.card, hostName: opponent.player_name ?? '', guestName: name ?? '', isHost: false });
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     if (waiting && waiting.length > 0) {
       const opponent = waiting[0];
       const result = simulateBattle(opponent.card as TwitterCard, card);
-      const id = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
       await supabase.from('challenges').insert({ id, host_id: opponent.player_id, host_card: opponent.card, host_name: opponent.player_name ?? '', guest_id: playerId, guest_card: card, guest_name: name ?? '', result });
       await supabase.from('matchmaking').update({ matched: true, challenge_id: id }).eq('id', opponent.id);
       return NextResponse.json({ matched: true, challengeId: id, result, hostCard: opponent.card, hostName: opponent.player_name ?? '', guestName: name ?? '', isHost: false });
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.action === 'create') {
-    const id = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
     const { error } = await supabase.from('challenges').insert({
       id, host_id: body.hostId, host_card: await verifyCard(sanitize(body.hostCard)), host_name: body.name ?? '',
     });
