@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { simulateBattle, simulateTeamBattle } from '@/lib/battle';
+import { verifySignature } from '@/lib/cardSign';
 import type { TwitterCard } from '@/types';
 import { rateLimit, getIp } from '@/lib/rateLimit';
 
@@ -14,6 +15,24 @@ function clampCard(c: TwitterCard): TwitterCard {
 }
 function sanitize(card: unknown): TwitterCard { return clampCard(card as TwitterCard); }
 function sanitizeTeam(team: unknown): TwitterCard[] { return (Array.isArray(team) ? team : []).slice(0, 5).map(sanitize); }
+
+// サーバー側でカードを再取得してステータスを検証・上書き
+async function verifyCard(card: TwitterCard): Promise<TwitterCard> {
+  // 署名が有効なら再取得不要
+  if (card.signature && await verifySignature(card)) return clampCard(card);
+  // 署名なし or 無効 → 再取得
+  try {
+    const base = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://twigacha.vercel.app';
+    const res = await fetch(`${base}/api/gacha?username=${encodeURIComponent(card.username)}`, { next: { revalidate: 3600 } });
+    if (!res.ok) return clampCard(card);
+    const verified = await res.json();
+    if (verified.error) return clampCard(card);
+    return { ...verified, element: card.element, skill: card.skill, ultimates: card.ultimates };
+  } catch { return clampCard(card); }
+}
+async function verifyTeam(team: TwitterCard[]): Promise<TwitterCard[]> {
+  return Promise.all(team.map(verifyCard));
+}
 
 // POST /api/challenge  { action: 'create', hostId, hostCard }
 //                      { action: 'join',   id, guestId, guestCard }
@@ -59,8 +78,9 @@ export async function POST(req: NextRequest) {
 
   if (body.action === 'team_create') {
     const id = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const hostTeam = await verifyTeam(sanitizeTeam(body.hostTeam));
     const { error } = await supabase.from('challenges').insert({
-      id, host_id: body.hostId, host_card: sanitizeTeam(body.hostTeam), host_name: body.name ?? '',
+      id, host_id: body.hostId, host_card: hostTeam, host_name: body.name ?? '',
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ id });
@@ -71,7 +91,7 @@ export async function POST(req: NextRequest) {
     if (error || !data) return NextResponse.json({ error: 'not found' }, { status: 404 });
     if (data.result) return NextResponse.json({ error: 'already finished' }, { status: 400 });
     if (data.guest_id) return NextResponse.json({ error: 'already joined' }, { status: 400 });
-    const guestTeam = sanitizeTeam(body.guestTeam);
+    const guestTeam = await verifyTeam(sanitizeTeam(body.guestTeam));
     const result = simulateTeamBattle(data.host_card as TwitterCard[], guestTeam);
     await supabase.from('challenges').update({ guest_id: body.guestId, guest_card: guestTeam, guest_name: body.name ?? '', result }).eq('id', body.id);
     return NextResponse.json({ result, hostTeam: data.host_card, hostName: data.host_name, guestName: body.name ?? '' });
@@ -79,7 +99,7 @@ export async function POST(req: NextRequest) {
 
   if (body.action === 'team_matchmake') {
     const { playerId, name } = body;
-    const team = sanitizeTeam(body.team);
+    const team = await verifyTeam(sanitizeTeam(body.team));
     const { data: waiting } = await supabase.from('matchmaking').select('*').eq('matched', false).neq('player_id', playerId).order('created_at', { ascending: true }).limit(1);
     if (waiting && waiting.length > 0) {
       const opponent = waiting[0];
@@ -96,7 +116,7 @@ export async function POST(req: NextRequest) {
 
   if (body.action === 'matchmake') {
     const { playerId, name } = body;
-    const card = sanitize(body.card);
+    const card = await verifyCard(sanitize(body.card));
     const { data: waiting } = await supabase.from('matchmaking').select('*').eq('matched', false).neq('player_id', playerId).order('created_at', { ascending: true }).limit(1);
     if (waiting && waiting.length > 0) {
       const opponent = waiting[0];
@@ -131,7 +151,7 @@ export async function POST(req: NextRequest) {
   if (body.action === 'create') {
     const id = Math.random().toString(36).slice(2, 8).toUpperCase();
     const { error } = await supabase.from('challenges').insert({
-      id, host_id: body.hostId, host_card: sanitize(body.hostCard), host_name: body.name ?? '',
+      id, host_id: body.hostId, host_card: await verifyCard(sanitize(body.hostCard)), host_name: body.name ?? '',
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ id });
@@ -142,7 +162,7 @@ export async function POST(req: NextRequest) {
     if (error || !data) return NextResponse.json({ error: 'not found' }, { status: 404 });
     if (data.result) return NextResponse.json({ error: 'already finished' }, { status: 400 });
     if (data.guest_id) return NextResponse.json({ error: 'already joined' }, { status: 400 });
-    const guestCard = sanitize(body.guestCard);
+    const guestCard = await verifyCard(sanitize(body.guestCard));
     const result = simulateBattle(data.host_card as TwitterCard, guestCard);
     const { error: upErr } = await supabase.from('challenges').update({
       guest_id: body.guestId, guest_card: guestCard, guest_name: body.name ?? '', result,

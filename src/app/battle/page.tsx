@@ -12,7 +12,7 @@ import { VsIdScreen } from "./VsIdScreen";
 import { OnlineBattleView } from "./OnlineViews";
 import { TeamBattleView } from "./TeamBattleView";
 import { RaidViews } from "./RaidViews";
-import QuestView, { getStageFilters, normalizeEnemy, STAGE_ENEMY_SCALE } from "./QuestView";
+import QuestView, { getStageFilters, normalizeEnemy, STAGE_ENEMY_SCALE, getStageRarity } from "./QuestView";
 import { BattleMenuView } from "./BattleMenuView";
 import { BattleView } from "./BattleView";
 import { ReplayView } from "./ReplayView";
@@ -369,8 +369,10 @@ function BattlePageInner() {
     const questStage = questStageIdx !== null ? q.stages[questStageIdx] : null;
     const stageFilters = questStageIdx !== null ? getStageFilters(collection, favorites, questCleared) : null;
     const questFilter = stageFilters && questStageIdx !== null ? stageFilters[questStageIdx] : null;
+    const stageRarity = questStageIdx !== null ? getStageRarity(questStageIdx) : null;
     const filtered = sortBattle(collection.filter(c =>
       (questFilter ? questFilter(c) : true) &&
+      (stageRarity ? c.rarity === stageRarity : true) &&
       (rarityFilter === "ALL" || c.rarity === rarityFilter) &&
       (!search || c.username.includes(search) || c.displayName.includes(search))
     ));
@@ -404,10 +406,25 @@ function BattlePageInner() {
             <button disabled={!playerCard} onClick={async () => {
               if (!playerCard || questStageIdx === null) return;
               setLog([]); setResult(null); setEnemyCard(null); setView('battle');
-              const res = await fetch("/api/gacha?count=1");
-              const data = await res.json();
-              const raw: TwitterCard = Array.isArray(data) ? data[0] : data;
-              if (raw && !(raw as { error?: string }).error) setEnemyCard(normalizeEnemy(raw, STAGE_ENEMY_SCALE[questStageIdx]));
+              const stageRarity = getStageRarity(questStageIdx);
+              const fetchWithRetry = async (): Promise<TwitterCard | null> => {
+                while (true) {
+                  const controller = new AbortController();
+                  const timer = setTimeout(() => controller.abort(), 3000);
+                  try {
+                    const res = await fetch("/api/gacha?count=5", { signal: controller.signal });
+                    clearTimeout(timer);
+                    const data = await res.json();
+                    const cards: TwitterCard[] = (Array.isArray(data) ? data : [data]).filter((c: { error?: string }) => c && !c.error);
+                    return cards.find(c => c.rarity === stageRarity) ?? cards[0] ?? null;
+                  } catch { clearTimeout(timer); }
+                }
+              };
+              const raw = await fetchWithRetry();
+              if (raw) {
+                const scaled = normalizeEnemy(raw, STAGE_ENEMY_SCALE[questStageIdx]);
+                setEnemyCard({ ...scaled, rarity: stageRarity as TwitterCard['rarity'] });
+              }
             }} className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl font-bold text-lg hover:opacity-90 disabled:opacity-40 transition">
               {t.battle.startBattle}
             </button>

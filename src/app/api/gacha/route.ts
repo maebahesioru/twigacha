@@ -1,4 +1,5 @@
 import { buildCard } from "@/lib/card";
+import { signCard } from "@/lib/cardSign";
 import { NextResponse } from "next/server";
 import { rateLimit, getIp } from "@/lib/rateLimit";
 
@@ -508,7 +509,7 @@ export async function GET(req: Request) {
       })));
       const cards = shuffle([...twitterCards, ...bskyUsers.map(buildBskyCard), ...misskeyUsers.map(buildMisskeyCard), ...mastodonUsers]).slice(0, count);
       if (!cards.length) return NextResponse.json({ error: "カードを取得できませんでした" }, { status: 404 });
-      return NextResponse.json(cards);
+      return NextResponse.json(await Promise.all(cards.map(signCard)));
     } catch (e) {
       console.error(e);
       return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
@@ -539,7 +540,7 @@ export async function GET(req: Request) {
           // Mastodon ultimates: account IDはidフィールドから取得
           const rawId = card.id.replace(`mdon_${mInstance || "mastodon.social"}_`, "");
           const ultimates = await fetchMastodonUltimates(rawId, mInstance || "mastodon.social");
-          return NextResponse.json({ ...card, ultimates });
+          return NextResponse.json(await signCard({ ...card, ultimates }));
         }
       }
       // Misskey: user@instance 形式
@@ -554,13 +555,12 @@ export async function GET(req: Request) {
         if (!u) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
         const misskeyCard = buildMisskeyCard(u);
         const ultimates = await fetchMisskeyUltimates(u.id);
-        return NextResponse.json({ ...misskeyCard, ultimates });
+        return NextResponse.json(await signCard({ ...misskeyCard, ultimates }));
       }
       if (isBsky) {
         const u = await fetchBskyUser(username);
         if (!u) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
-        const bskyCard = buildBskyCard(u);
-        return NextResponse.json(bskyCard);
+        return NextResponse.json(await signCard(buildBskyCard(u)));
       }
       const user = await fetchFxUser(username);
       if (!user) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
@@ -582,7 +582,7 @@ export async function GET(req: Request) {
         location: user.location || undefined,
         website: user.website?.url || user.website || undefined,
       });
-      return NextResponse.json(card);
+      return NextResponse.json(await signCard(card));
     } catch {
       return NextResponse.json({ error: "取得失敗" }, { status: 500 });
     }
@@ -626,7 +626,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "カードを取得できませんでした" }, { status: 404 });
     }
 
-    return NextResponse.json(cards);
+    return NextResponse.json(await Promise.all(cards.map(signCard)));
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
