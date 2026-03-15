@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
     if (error || !data) return NextResponse.json({ error: 'not found' }, { status: 404 });
     if (data.result) return NextResponse.json({ error: 'already finished' }, { status: 400 });
     if (data.guest_id) return NextResponse.json({ error: 'already joined' }, { status: 400 });
+    if (data.created_at && Date.now() - new Date(data.created_at).getTime() > 60 * 60 * 1000)
+      return NextResponse.json({ error: 'expired' }, { status: 410 });
     const guestTeam = await verifyTeam(sanitizeTeam(body.guestTeam));
     const result = simulateTeamBattle(data.host_card as TwitterCard[], guestTeam);
     await supabase.from('challenges').update({ guest_id: body.guestId, guest_card: guestTeam, guest_name: body.name ?? '', result }).eq('id', body.id);
@@ -162,6 +164,8 @@ export async function POST(req: NextRequest) {
     if (error || !data) return NextResponse.json({ error: 'not found' }, { status: 404 });
     if (data.result) return NextResponse.json({ error: 'already finished' }, { status: 400 });
     if (data.guest_id) return NextResponse.json({ error: 'already joined' }, { status: 400 });
+    if (data.created_at && Date.now() - new Date(data.created_at).getTime() > 60 * 60 * 1000)
+      return NextResponse.json({ error: 'expired' }, { status: 410 });
     const guestCard = await verifyCard(sanitize(body.guestCard));
     const result = simulateBattle(data.host_card as TwitterCard, guestCard);
     const { error: upErr } = await supabase.from('challenges').update({
