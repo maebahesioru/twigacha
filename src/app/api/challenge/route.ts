@@ -51,6 +51,8 @@ async function cleanup() {
 }
 
 export async function GET(req: NextRequest) {
+  if (!rateLimit(getIp(req), 120, 60_000))
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   const id = req.nextUrl.searchParams.get('id');
   if (!id) {
     // 同接数（未マッチのキュー数）を返す

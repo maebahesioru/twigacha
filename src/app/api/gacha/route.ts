@@ -472,6 +472,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const count = Math.min(parseInt(searchParams.get("count") ?? "5"), 10);
   const rawUsername = searchParams.get("username");
+  if (rawUsername && (rawUsername.length > 150 || /[<>"'`]/.test(rawUsername)))
+    return NextResponse.json({ error: "invalid username" }, { status: 400 });
   const platform = searchParams.get("platform"); // "mastodon" の場合はMastodon指定
   const isMastodonUser = platform === "mastodon" || (rawUsername?.includes("@") && rawUsername.split("@").length === 2 && platform !== "misskey");
   const isBsky = rawUsername ? (!rawUsername.includes("@") && rawUsername.includes(".")) : false;
