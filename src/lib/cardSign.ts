@@ -1,6 +1,7 @@
 import type { TwitterCard } from "@/types";
 
-const SECRET = process.env.CARD_SIGN_SECRET ?? "twigacha-default-secret";
+const SECRET = process.env.CARD_SIGN_SECRET;
+if (!SECRET) throw new Error("CARD_SIGN_SECRET is not set");
 
 function statString(card: TwitterCard): string {
   return `${card.id}:${card.atk}:${card.def}:${card.spd}:${card.hp}:${card.int}:${card.luk}:${card.element ?? ""}:${card.skill ?? ""}:${card.rarity ?? ""}:${card.enhance ?? 0}`;
