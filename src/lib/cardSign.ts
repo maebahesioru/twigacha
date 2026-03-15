@@ -3,7 +3,7 @@ import type { TwitterCard } from "@/types";
 const SECRET = process.env.CARD_SIGN_SECRET ?? "twigacha-default-secret";
 
 function statString(card: TwitterCard): string {
-  return `${card.id}:${card.atk}:${card.def}:${card.spd}:${card.hp}:${card.int}:${card.luk}`;
+  return `${card.id}:${card.atk}:${card.def}:${card.spd}:${card.hp}:${card.int}:${card.luk}:${card.element ?? ""}:${card.skill ?? ""}`;
 }
 
 async function hmac(data: string): Promise<string> {

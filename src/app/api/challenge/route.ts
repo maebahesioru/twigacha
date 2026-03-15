@@ -27,7 +27,7 @@ async function verifyCard(card: TwitterCard): Promise<TwitterCard> {
     if (!res.ok) return clampCard(card);
     const verified = await res.json();
     if (verified.error) return clampCard(card);
-    return { ...verified, element: card.element, skill: card.skill, ultimates: card.ultimates };
+    return { ...verified, ultimates: card.ultimates };
   } catch { return clampCard(card); }
 }
 async function verifyTeam(team: TwitterCard[]): Promise<TwitterCard[]> {
