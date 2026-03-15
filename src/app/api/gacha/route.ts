@@ -321,7 +321,7 @@ function buildMisskeyCard(u: any) {
   const card = buildCard({
     id: `msky_${u.id}`,
     screen_name: u.host ? `${u.username}@${host}` : u.username,
-    name: u.name || u.username,
+    name: (u.name || u.username).replace(/:[a-zA-Z0-9_]+:/g, "").trim() || u.username,
     avatar: u.avatarUrl ?? "",
     description: u.description ?? "",
     followers: u.followersCount ?? 0,
