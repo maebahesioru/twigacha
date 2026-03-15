@@ -7,10 +7,17 @@ function statString(card: TwitterCard): string {
   return `${card.id}:${card.atk}:${card.def}:${card.spd}:${card.hp}:${card.int}:${card.luk}:${card.element ?? ""}:${card.skill ?? ""}:${card.rarity ?? ""}:${card.enhance ?? 0}`;
 }
 
+let cachedKey: CryptoKey | null = null;
+async function getKey(): Promise<CryptoKey> {
+  if (cachedKey) return cachedKey;
+  const enc = new TextEncoder();
+  cachedKey = await crypto.subtle.importKey("raw", enc.encode(SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return cachedKey;
+}
+
 async function hmac(data: string): Promise<string> {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(data));
+  const sig = await crypto.subtle.sign("HMAC", await getKey(), enc.encode(data));
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
