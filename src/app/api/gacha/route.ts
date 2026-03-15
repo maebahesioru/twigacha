@@ -484,6 +484,8 @@ export async function GET(req: Request) {
     : null;
 
   const rawQuery = searchParams.get("query");
+  if (rawQuery && rawQuery.length > 200)
+    return NextResponse.json({ error: "invalid query" }, { status: 400 });
   const query = rawQuery ? sanitizeQuery(rawQuery) : null;
 
   // ピックアップガチャ
