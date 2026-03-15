@@ -104,7 +104,7 @@ export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
       collection: [],
-      playerId: Math.random().toString(36).slice(2),
+      playerId: crypto.randomUUID().replace(/-/g, ''),
       addCard: (card) =>
         set((s) => ({
           collection: [get().hasCard(card.id) ? { ...card, id: `${card.id}_${Date.now()}` } : card, ...s.collection],
