@@ -56,5 +56,5 @@ export async function POST(req: NextRequest) {
     website: user.website?.url || user.website || undefined,
   });
 
-  return NextResponse.json(await signCard(card));
+  return NextResponse.json({ card: await signCard(card) });
 }
