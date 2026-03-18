@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import { rateLimit, getIp } from '@/lib/rateLimit';
+
+// コード→usernameのマスター（サーバー側で管理）
+const CODES: Record<string, string> = {
+  WIKIGACHA: 'harusugi5',
+};
 
 export async function POST(req: NextRequest) {
   if (!rateLimit(getIp(req), 10, 60_000))
@@ -10,22 +14,11 @@ export async function POST(req: NextRequest) {
   if (!code || typeof code !== 'string')
     return NextResponse.json({ error: 'invalid' }, { status: 400 });
 
-  const { data, error } = await supabase
-    .from('serial_codes')
-    .select('*')
-    .eq('code', code.toUpperCase().trim())
-    .single();
+  const username = CODES[code.toUpperCase().trim()];
+  if (!username) return NextResponse.json({ error: 'invalid' }, { status: 404 });
 
-  if (error || !data) return NextResponse.json({ error: 'invalid' }, { status: 404 });
-  if (data.used) return NextResponse.json({ error: 'used' }, { status: 410 });
-  if (data.expires_at && new Date(data.expires_at) < new Date())
-    return NextResponse.json({ error: 'expired' }, { status: 410 });
-
-  await supabase.from('serial_codes').update({ used: true }).eq('code', data.code);
-
-  // カードを取得して返す
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://twigacha.vercel.app';
-  const res = await fetch(`${base}/api/gacha?username=${encodeURIComponent(data.username)}`);
+  const res = await fetch(`${base}/api/gacha?username=${encodeURIComponent(username)}`);
   if (!res.ok) return NextResponse.json({ error: 'fetch_failed' }, { status: 500 });
   const card = await res.json();
   return NextResponse.json({ card });

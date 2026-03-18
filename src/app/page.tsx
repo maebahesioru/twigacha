@@ -262,10 +262,14 @@ export default function GachaPage() {
   async function redeemSerial() {
     if (!serialCode.trim()) return;
     setSerialMsg(null);
-    const res = await fetch('/api/serial', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: serialCode.trim() }) });
+    const code = serialCode.trim().toUpperCase();
+    const usedCodes: string[] = JSON.parse(localStorage.getItem('usedSerialCodes') ?? '[]');
+    if (usedCodes.includes(code)) { setSerialMsg(t.gacha.serial.used); return; }
+    const res = await fetch('/api/serial', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
     const data = await res.json();
     if (data.card) {
       addCard(data.card);
+      localStorage.setItem('usedSerialCodes', JSON.stringify([...usedCodes, code]));
       setSerialMsg(t.gacha.serial.success);
       setSerialCode("");
     } else {
