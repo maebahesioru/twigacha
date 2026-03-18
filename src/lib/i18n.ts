@@ -65,6 +65,15 @@ const ja = {
       button: "ピックアップ！",
       notEnough: "パックが足りません（5パック必要）",
     },
+    serial: {
+      title: "🎟️ シリアルコード",
+      placeholder: "コードを入力",
+      button: "交換",
+      success: "カードを入手しました！",
+      invalid: "無効なコードです",
+      used: "このコードは使用済みです",
+      expired: "このコードは期限切れです",
+    },
   },
   collection: {
     title: "コレクション",
@@ -460,6 +469,15 @@ const en: typeof ja = {
       cost: "5 packs · 5 chars max",
       button: "Pickup!",
       notEnough: "Not enough packs (need 5)",
+    },
+    serial: {
+      title: "🎟️ Serial Code",
+      placeholder: "Enter code",
+      button: "Redeem",
+      success: "Card obtained!",
+      invalid: "Invalid code",
+      used: "This code has already been used",
+      expired: "This code has expired",
     },
   },
   collection: {

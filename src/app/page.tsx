@@ -69,6 +69,8 @@ export default function GachaPage() {
   const [isNewCard, setIsNewCard] = useState(false);
   const [particles, setParticles] = useState<{id:number;tx:string;ty:string;color:string}[]>([]);
   const [pickupQuery, setPickupQuery] = useState("");
+  const [serialCode, setSerialCode] = useState("");
+  const [serialMsg, setSerialMsg] = useState<string | null>(null);
 
   const touchStartX = useRef(0);
 
@@ -257,6 +259,21 @@ export default function GachaPage() {
     }
   }
 
+  async function redeemSerial() {
+    if (!serialCode.trim()) return;
+    setSerialMsg(null);
+    const res = await fetch('/api/serial', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: serialCode.trim() }) });
+    const data = await res.json();
+    if (data.card) {
+      addCard(data.card);
+      setSerialMsg(t.gacha.serial.success);
+      setSerialCode("");
+    } else {
+      const key = data.error as keyof typeof t.gacha.serial;
+      setSerialMsg(t.gacha.serial[key] ?? t.gacha.serial.invalid);
+    }
+  }
+
   async function pullPickup(query: string) {
     if (remaining < 5) return;
     setLoading(true); setError(""); setCards([]); setRevealed(0);
@@ -352,6 +369,22 @@ export default function GachaPage() {
               />
             </div>
             {remaining < 5 && <p className="text-red-400 text-xs mt-1">{t.gacha.pickup.notEnough}</p>}
+          </div>
+
+          {/* シリアルコード */}
+          <div className="mt-4 w-full max-w-sm bg-gray-800/80 rounded-xl p-3 text-sm">
+            <p className="font-bold text-gray-300 mb-2">{t.gacha.serial.title}</p>
+            <div className="flex gap-2">
+              <input
+                value={serialCode}
+                onChange={e => setSerialCode(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === 'Enter' && redeemSerial()}
+                placeholder={t.gacha.serial.placeholder}
+                className="w-full bg-gray-700 rounded px-2 py-1 text-white text-xs outline-none"
+              />
+              <button onClick={redeemSerial} className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-3 py-1 rounded whitespace-nowrap">{t.gacha.serial.button}</button>
+            </div>
+            {serialMsg && <p className={`text-xs mt-1 ${serialMsg === t.gacha.serial.success ? 'text-green-400' : 'text-red-400'}`}>{serialMsg}</p>}
           </div>
 
           {/* デイリーミッション */}
