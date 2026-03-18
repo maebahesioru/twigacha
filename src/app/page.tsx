@@ -272,6 +272,7 @@ export default function GachaPage() {
       localStorage.setItem('usedSerialCodes', JSON.stringify([...usedCodes, code]));
       setSerialMsg(t.gacha.serial.success);
       setSerialCode("");
+      setCards([data.card]); setRevealed(1);
     } else {
       const key = data.error as keyof typeof t.gacha.serial;
       setSerialMsg(t.gacha.serial[key] ?? t.gacha.serial.invalid);
