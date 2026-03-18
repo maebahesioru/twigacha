@@ -372,7 +372,6 @@ function BattlePageInner() {
     const stageRarity = questStageIdx !== null ? getStageRarity(questStageIdx) : null;
     const filtered = sortBattle(collection.filter(c =>
       (questFilter ? questFilter(c) : true) &&
-      (stageRarity ? c.rarity === stageRarity : true) &&
       (rarityFilter === "ALL" || c.rarity === rarityFilter) &&
       (!search || c.username.includes(search) || c.displayName.includes(search))
     ));
