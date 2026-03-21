@@ -8,6 +8,7 @@ import type { TwitterCard } from "@/types";
 import Confetti from "@/components/Confetti";
 import { playMissionComplete } from "@/lib/audio";
 import LoginBonus from "@/components/LoginBonus";
+import AdMaxSlot from "@/components/AdMaxSlot";
 
 const LOADING_MSGS = [
   "🔮 運命のカードを探しています...", "✨ 星の配置を確認中...", "🎴 カードを召喚中...",
@@ -627,6 +628,10 @@ export default function GachaPage() {
           )}
         </div>
       )}
+
+      <div className="flex justify-center w-full my-6 px-2">
+        <AdMaxSlot slot="mrec" width={300} height={250} className="rounded-lg bg-gray-900/40" />
+      </div>
 
       {/* ガチャ統計 */}
       {totalPackCount > 0 && (() => {
