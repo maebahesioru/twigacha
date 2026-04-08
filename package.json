@@ -18,6 +18,9 @@
     "web-push": "^3.6.7",
     "zustand": "^5.0.11"
   },
+  "pnpm": {
+    "ignoredBuiltDependencies": ["sharp", "unrs-resolver"]
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
