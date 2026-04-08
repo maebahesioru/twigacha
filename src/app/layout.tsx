@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
-import AdMaxMobileBanner from "@/components/AdMaxMobileBanner";
-import AdMaxDesktop728 from "@/components/AdMaxDesktop728";
-import AdMaxAboveFooter from "@/components/AdMaxAboveFooter";
-import AdMaxRightRail from "@/components/AdMaxRightRail";
-import AdMaxOverlay from "@/components/AdMaxOverlay";
 import Footer from "@/components/Footer";
 import HtmlLang from "@/components/HtmlLang";
 import { Analytics } from "@vercel/analytics/next";
@@ -78,23 +73,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <noscript dangerouslySetInnerHTML={{ __html: `<iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MGWGZWXH" height="0" width="0" style="display:none;visibility:hidden"></iframe>` }} />
         <HtmlLang />
         <Navbar />
-        <AdMaxMobileBanner />
-        <AdMaxDesktop728 />
         <div className="flex flex-1 min-h-0 w-full max-w-[1600px] mx-auto">
           <main className="flex-1 min-w-0 min-h-0">{children}</main>
-          <aside
-            className="hidden md:flex w-[168px] shrink-0 flex-col items-center border-l border-gray-800/60 bg-gray-950"
-            aria-label="Advertisement"
-          >
-            <AdMaxRightRail />
-          </aside>
         </div>
-        <AdMaxAboveFooter />
         <Footer />
         <Analytics />
         <Script id="gtm" strategy="afterInteractive">{`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-MGWGZWXH');`}</Script>
-        <Script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9868361167191737" strategy="afterInteractive" crossOrigin="anonymous" />
-        <AdMaxOverlay />
       </body>
     </html>
   );
