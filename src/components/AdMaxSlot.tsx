@@ -7,9 +7,11 @@ type Props = {
   width: number;
   height: number;
   className?: string;
+  /** 既定 lazy。右レール等は eager で即読み込み */
+  loading?: "lazy" | "eager";
 };
 
-export default function AdMaxSlot({ slot, width, height, className }: Props) {
+export default function AdMaxSlot({ slot, width, height, className, loading = "lazy" }: Props) {
   const url = admax[slot];
   const tag = tagIdFromAdmaxUrl(url);
   if (!tag) return null;
@@ -22,7 +24,7 @@ export default function AdMaxSlot({ slot, width, height, className }: Props) {
       className={className}
       src={src}
       style={{ border: 0, maxWidth: "100%" }}
-      loading="lazy"
+      loading={loading}
       referrerPolicy="no-referrer-when-downgrade"
     />
   );
