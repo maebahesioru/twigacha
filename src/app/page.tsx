@@ -177,6 +177,32 @@ export default function GachaPage() {
   }
   const [error, setError] = useState("");
   const { addCard, hasCard, packCount, packDate, openPack, bonusPacks, bonusPackDate, usedBonusPacks, usedBonusDate, srDate, srDone, markSR, twitterDate, twitterDone, markTwitter, shareDate, shareDone, markShare, battleDate, battleDone, raidMissionDate, raidMissionDone, toggleFavorite, favorites, pityCount, addPity, resetPity, setLastPackCards, incrementCardPullCount, totalPackCount, collection, cardPullCounts, quest311Date, quest311Rewarded, claimQuest311 } = useGameStore();
+
+  // HKM決済コールバック処理
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hkmToken = params.get("hkm_token");
+    const item = params.get("item");
+    if (!hkmToken) return;
+    // Remove token from URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete("hkm_token");
+    url.searchParams.delete("item");
+    window.history.replaceState({}, "", url.toString());
+    // Verify token
+    fetch(`https://hikakinmaniacoin.hikamer.f5.si/api/checkout?token=${hkmToken}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.valid) return;
+        const packs = item === "twigacha-ssr" ? 1 : 5;
+        useGameStore.setState(s => ({
+          bonusPacks: (s.bonusPacks ?? 0) + packs,
+          bonusPackDate: new Date().toDateString(),
+        }));
+        alert(`✅ HKM決済完了！ボーナスパック×${packs}を獲得しました！`);
+      })
+      .catch(() => {});
+  }, []);
   const t = useT();
   const today = new Date().toDateString();
   const is311 = new Date().getMonth() === 2 && new Date().getDate() === 11;
@@ -373,6 +399,25 @@ export default function GachaPage() {
               />
             </div>
             {remaining < 5 && <p className="text-red-400 text-xs mt-1">{t.gacha.pickup.notEnough}</p>}
+          </div>
+
+          {/* HKMで購入 */}
+          <div className="mt-4 w-full max-w-sm bg-yellow-900/30 border border-yellow-500/30 rounded-xl p-3 text-sm">
+            <p className="font-bold text-yellow-400 mb-2">🪙 HKMで購入</p>
+            <div className="flex gap-2">
+              <a
+                href={`https://hikakinmaniacoin.hikamer.f5.si/checkout?item=twigacha-5pack&callback=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://twigacha.hikamer.f5.si')}`}
+                className="flex-1 rounded-lg bg-yellow-400 py-2 text-center text-xs font-bold text-black hover:bg-yellow-300"
+              >
+                5枚パック<br /><span className="font-normal">500 HKM</span>
+              </a>
+              <a
+                href={`https://hikakinmaniacoin.hikamer.f5.si/checkout?item=twigacha-ssr&callback=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://twigacha.hikamer.f5.si')}`}
+                className="flex-1 rounded-lg bg-yellow-400 py-2 text-center text-xs font-bold text-black hover:bg-yellow-300"
+              >
+                SSR確定1枚<br /><span className="font-normal">700 HKM</span>
+              </a>
+            </div>
           </div>
 
           {/* シリアルコード */}
