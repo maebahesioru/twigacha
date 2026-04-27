@@ -8,6 +8,7 @@ import Script from "next/script";
 
 const BASE_URL = "https://twigacha.hikamer.f5.si";
 
+// rebuild trigger
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
