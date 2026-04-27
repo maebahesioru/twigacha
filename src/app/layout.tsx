@@ -6,7 +6,7 @@ import HtmlLang from "@/components/HtmlLang";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 
-const BASE_URL = "https://twigacha.vercel.app";
+const BASE_URL = "https://twigacha.hikamer.f5.si";
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
@@ -24,11 +24,13 @@ export const metadata: Metadata = {
     title: "TwiGacha — TwitterアカウントをTCGカード化してガチャ＆バトル！",
     description: "Twitterアカウントをリアルタイムで解析してTCGカードを生成。ガチャ・コレクション・バトルが楽しめるブラウザゲーム。",
     locale: "ja_JP",
+    images: ["/opengraph-image"],
   },
   twitter: {
     card: "summary_large_image",
     title: "TwiGacha — TwitterアカウントをTCGカード化してガチャ＆バトル！",
     description: "Twitterアカウントをリアルタイムで解析してTCGカードを生成。ガチャ・コレクション・バトルが楽しめるブラウザゲーム。",
+    images: ["/opengraph-image"],
   },
   icons: { icon: "/favicon.svg" },
   manifest: "/manifest.json",
